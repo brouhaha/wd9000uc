@@ -14,7 +14,7 @@
 
 ; register assignments:
 
-                    LPR/SPR
+;                   LPR/SPR
 ; direct  indirect  reg#     name        description
 ; ------  --------  -------  ----------  --------------------------------
 ; rb:a               7       PC (IPC)    instruction program counter
