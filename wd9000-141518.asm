@@ -38,20 +38,17 @@
   	jmp	reset		; cold start (addr 0x001)
 
 
-tt_95:
-	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
+tt_95:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mbf	r8,r6
 
 	ll	0x0,r7
-tt_96:
-	mbf	r9,r6
+tt_96:	mbf	r9,r6
 
 L007:	ll	0x0,r7
 
-tt_93:
-	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
+tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mbf	r8,r6		; r6 := r8, update flags
@@ -60,8 +57,7 @@ tt_93:
 	nl	0x7f,r8		; mask off MSB
 	mb	r8,r7
 	mb	r9,r6
-tt_94:
-	mbf	r9,r6
+tt_94:	mbf	r9,r6
 	jnf	L007
 
 	nl	0x7f,r9
@@ -73,35 +69,30 @@ tt_94:
 	mb	r8,r6
 	rtsr			; reset translation state
 
-tt_04:
-	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
+tt_04:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mb	r8,r6,,1
 	jmp	L600
 
 
-tt_06:
-	r	r9,r8		; r9:8, tr := [r9:8]; load ics
+tt_06:	r	r9,r8		; r9:8, tr := [r9:8]; load ics
 	iw	0x3,r8
 tt_05:	mb	r9,r6,,1
 	jmp	L600
 
 
-tt_91:
-	riw1	ipch,ipcl	; r7:6 := [ipc++]
+tt_91:	riw1	ipch,ipcl	; r7:6 := [ipc++]
 	iw	0x0,r6
 
-tt_92:
-	mb	r9,r6
+tt_92:	mb	r9,r6
 
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mb	r8,r7
 
-tt_56:
-	riw1	sph,spl		; r3:2 := [sp++]
+tt_56:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2
 
 	riw1	sph,spl		; r5:4 := [sp++]
@@ -111,12 +102,10 @@ tt_56:
 	iwf	0x0,r6
 	
 tt_37:
-tt_54:
-	riw1	sph,spl		; r3:2 := [sp++]
+tt_54:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2
 
-tt_82:
-	r	sph,spl		; r7:6 := [sp]
+tt_82:	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6
 
 	nop
@@ -130,13 +119,13 @@ L031:	dw1	spl,spl
 	w	sph,spl,rsvc
 	ob	r6,r6
 
-tt_20:
-	dw1	spl,spl,lrr
+	
+tt_20:	dw1	spl,spl,lrr
 	w	sph,spl,rsvc
 	ow	r7,r6
 
-tt_21:
-	dw1	spl,spl,lrr
+	
+tt_21:	dw1	spl,spl,lrr
 	w	sph,spl,rsvc
 	ow	r7,r6
 
@@ -146,26 +135,21 @@ L03a:	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
 	ll	0x0,r6
 
 	dw1	spl,spl
-tt_17:
-	ll	0x0,r7
+tt_17:	ll	0x0,r7
 	al	0xe1,r6
 
 	aw	mpl,r6
-tt_27:
-	nop	,lrr
+tt_27:	nop	,lrr
 	aw	mpl,r6
-tt_18:
-	ll	0x0,r7
+tt_18:	ll	0x0,r7
 	al	0xd1,r6
 	ll	0x5,r4
 	lgl	r4
 	aw	gl,r6
-tt_25:
-	ll	0x5,r4
+tt_25:	ll	0x5,r4
 	lgl	r4,lrr
 	aw	gl,r6
-tt_29:
-	mw	mpl,r4,lrr
+tt_29:	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
 	jsr	L030
 	aw	r4,r6
@@ -175,22 +159,18 @@ L04e:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
-tt_22:
-	ll	0x4,r4
+tt_22:	ll	0x4,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	dw1	spl,spl
-tt_24:
-	nop	,lrr
+tt_24:	nop	,lrr
 	aw	mpl,r6
 	dw1	spl,spl
-tt_26:
-	ll	0x5,r4
+tt_26:	ll	0x5,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	dw1	spl,spl
-tt_28:
-	mw	mpl,r4,lrr
+tt_28:	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
 
 	jsr	L030
@@ -203,28 +183,24 @@ L062:	jsr	L0c6
 	jsr	L030
 	aw	r2,r6
 	dw1	spl,spl
-tt_42:
-	nop	,lrr
+tt_42:	nop	,lrr
 	aw	mpl,r6		; [mpl+r7:6] := r3:2
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
-tt_43:
-	ll	0x5,r4		; [bp+r7:6] := r3:2
+tt_43:	ll	0x5,r4		; [bp+r7:6] := r3:2
 	lgl	r4,lrr
 	aw	gl,r6
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
-tt_44:
-	mw	mpl,r4,lrr
+tt_44:	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
-tt_61:
 	jsr	L030
 	aw	r6,r4
-	w	r5,r4,rsvc
+tt_61:	w	r5,r4,rsvc
 	ow	r3,r2
 
 
@@ -236,8 +212,7 @@ L076:	mw	r2,r4,lrr
 	ow	r5,r4
 
 
-tt_45:
-	slbf	r3,r8
+tt_45:	slbf	r3,r8
 	srwcf	r3,r3
 	aw	r6,r2
 	r	r3,r2
@@ -247,8 +222,7 @@ tt_45:
 	ob	r6,r6
 
 
-tt_65:
-	riw1	sph,spl
+tt_65:	riw1	sph,spl
 	iw	0x0,r6
 	slbf	r5,r8
 	srwcf	r5,r5
@@ -263,8 +237,7 @@ tt_65:
 
 	nop
 
-tt_66:
-	mb	r4,r8
+tt_66:	mb	r4,r8
 	mbf	r2,r4
 	r	r7,r6
 	iw	0x0,r2
@@ -274,8 +247,7 @@ L094:	srw	r3,r3
 	jzbf	L094
 L097:	jsr	L1d7
 	nw	r2,r6
-tt_67:
-	riw1	sph,spl
+tt_67:	riw1	sph,spl
 	ib	0x1,r8
 	jsr	L1d7
 	mbf	r4,r4
@@ -296,13 +268,11 @@ L0a2:	lgl	r4
 	ow	gh,gl
 
 
-tt_23:
-	ll	0x4,r4
+tt_23:	ll	0x4,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	mw	r6,r2
-tt_73:
-	jsr	L0c6
+tt_73:	jsr	L0c6
 	sw	r6,spl
 	mw	spl,r4
 L0b2:	ll	0x0,r8
@@ -315,16 +285,14 @@ L0b5:	riw1	r3,r2
 	dw1f	r6,r6
 	jzf	L0b5
 L0bb:	nop
-tt_34:
-	mw	spl,r2,lrr
+tt_34:	mw	spl,r2,lrr
 	aw	r6,spl
 	riw1	sph,spl
 	iw	0x0,r4
 	jmp	L0b2
 
 
-tt_62:
-	jsr	L030
+tt_62:	jsr	L030
 	jmp	L0b2
 
 
@@ -366,8 +334,7 @@ L0d5:	r	r5,r4
 	al	0x3,r4
 	cib	r5
 
-tt_19:
-	r	sph,spl
+tt_19:	r	sph,spl
 	iw	0x0,r2
 
 	nl	0x7,r6
@@ -377,16 +344,13 @@ tt_19:
 	r	r3,r2
 	iw	0x0,r6
 
-tt_89:
-	mw	r6,r2,lrr
+tt_89:	mw	r6,r2,lrr
 	aw	r6,r2
 	r	r3,r2
 	iw	0x0,r6
-tt_90:
-	mw	r6,r2,lrr
+tt_90:	mw	r6,r2,lrr
 	aw	r2,r6
-tt_80:
-	jzt	L0fd
+tt_80:	jzt	L0fd
 	mw	r2,r4,lrr
 	jsr	L12e
 
@@ -418,34 +382,24 @@ L0fd:	jsr	L030
 	jmp	L245
 
 
-tt_83:
-	jnf	L189
-tt_84:
-	tcw	r6,r6
-tt_86:
-	nl	0x7f,r7
-tt_87:
-	al	0x80,r7
-tt_39:
-	nw	r2,r6
-tt_38:
-	orw	r2,r6
-tt_88:
-	ocw	r6,r6
-tt_40:
-	awf	r6,r2
+tt_83:	jnf	L189
+tt_84:	tcw	r6,r6
+tt_86:	nl	0x7f,r7
+tt_87:	al	0x80,r7
+tt_39:	nw	r2,r6
+tt_38:	orw	r2,r6
+tt_88:	ocw	r6,r6
+tt_40:	awf	r6,r2
 L107:	w	sph,spl,rsvc
 	ow	r3,r2
 
 
-tt_41:
-	swf	r2,r6
+tt_41:	swf	r2,r6
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 
-tt_32:
-	riw1	sph,spl
+tt_32:	riw1	sph,spl
 	iwf	0x0,r6
 	jzt	L164
 	ll	0x0,r8
@@ -1126,8 +1080,7 @@ tt_12:	al	0xff,ipcl
 
 tt_08:
 tt_09:
-tt_13:
-	nop
+tt_13:	nop
 	nop
 
 tt_58:	al	0x80,r3
