@@ -1,6 +1,6 @@
 ; Pascal Microengine microcode, MICROMs CP2171-14, CP2171-15, CP2171-18
 ; Reverse-engineered source code
-; Copyright 2015 Eric Smith <spacewar@gmail.com>
+; Copyright 2015, 2016 Eric Smith <spacewar@gmail.com>
 
 ; Reverse-engineering in progress:
 ;   There are probably many errors.
@@ -8,9 +8,10 @@
 
 ; Note that there are jumps and subroutine returns that occur on
 ; microinstructions that aren't explicit flow control instructions, due
-; to the translation PLAs in the control chip. These PLAs have not yet
-; been dumped. From study of the code one may be able to infer where some
-; of these translations occur.
+; to the translation PLAs in the control chip. These PLAs have only been
+; partially decoded. The branch targets of the translations have labels
+; of the form tt_nn, where nn is the output number of array 4 that specifies
+; the particular target.
 
 ; register assignments:
 
@@ -31,20 +32,25 @@
 
 	org	0x000
 
-	jmp	unimplemented_instruction
+	jmp	unimplemented_instruction	; addr 0x000
 
-  	jmp	reset		; cold start
 
+  	jmp	reset		; cold start (addr 0x001)
+
+
+tt_95:
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mbf	r8,r6
 
 	ll	0x0,r7
+tt_96:
 	mbf	r9,r6
 
 L007:	ll	0x0,r7
 
+tt_93:
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
@@ -54,6 +60,7 @@ L007:	ll	0x0,r7
 	nl	0x7f,r8		; mask off MSB
 	mb	r8,r7
 	mb	r9,r6
+tt_94:
 	mbf	r9,r6
 	jnf	L007
 
@@ -66,20 +73,26 @@ L007:	ll	0x0,r7
 	mb	r8,r6
 	rtsr			; reset translation state
 
+tt_04:
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
 	mb	r8,r6,,1
 	jmp	L600
 
+
+tt_06:
 	r	r9,r8		; r9:8, tr := [r9:8]; load ics
 	iw	0x3,r8
-	mb	r9,r6,,1
+tt_05:	mb	r9,r6,,1
 	jmp	L600
 
+
+tt_91:
 	riw1	ipch,ipcl	; r7:6 := [ipc++]
 	iw	0x0,r6
 
+tt_92:
 	mb	r9,r6
 
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
@@ -87,6 +100,7 @@ L007:	ll	0x0,r7
 
 	mb	r8,r7
 
+tt_56:
 	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2
 
@@ -96,9 +110,12 @@ L007:	ll	0x0,r7
 	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6
 	
+tt_37:
+tt_54:
 	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2
 
+tt_82:
 	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6
 
@@ -108,14 +125,17 @@ L007:	ll	0x0,r7
 L030:	nop
 
 
+tt_16:
 L031:	dw1	spl,spl
 	w	sph,spl,rsvc
 	ob	r6,r6
 
+tt_20:
 	dw1	spl,spl,lrr
 	w	sph,spl,rsvc
 	ow	r7,r6
 
+tt_21:
 	dw1	spl,spl,lrr
 	w	sph,spl,rsvc
 	ow	r7,r6
@@ -126,20 +146,25 @@ L03a:	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
 	ll	0x0,r6
 
 	dw1	spl,spl
+tt_17:
 	ll	0x0,r7
 	al	0xe1,r6
 
 	aw	mpl,r6
+tt_27:
 	nop	,lrr
 	aw	mpl,r6
+tt_18:
 	ll	0x0,r7
 	al	0xd1,r6
 	ll	0x5,r4
 	lgl	r4
 	aw	gl,r6
+tt_25:
 	ll	0x5,r4
 	lgl	r4,lrr
 	aw	gl,r6
+tt_29:
 	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
 	jsr	L030
@@ -150,19 +175,21 @@ L04e:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
+tt_22:
 	ll	0x4,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	dw1	spl,spl
+tt_24:
 	nop	,lrr
-
 	aw	mpl,r6
 	dw1	spl,spl
+tt_26:
 	ll	0x5,r4
 	lgl	r4,lrr
-
 	aw	gl,r6
 	dw1	spl,spl
+tt_28:
 	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
 
@@ -176,24 +203,30 @@ L062:	jsr	L0c6
 	jsr	L030
 	aw	r2,r6
 	dw1	spl,spl
+tt_42:
 	nop	,lrr
-
 	aw	mpl,r6		; [mpl+r7:6] := r3:2
 	w	r7,r6,rsvc
 	ow	r3,r2
 
+
+tt_43:
 	ll	0x5,r4		; [bp+r7:6] := r3:2
 	lgl	r4,lrr
 	aw	gl,r6
 	w	r7,r6,rsvc
 	ow	r3,r2
 
+
+tt_44:
 	mw	mpl,r4,lrr
 	jzf	L0d3,lrr
+tt_61:
 	jsr	L030
 	aw	r6,r4
 	w	r5,r4,rsvc
 	ow	r3,r2
+
 
 L076:	mw	r2,r4,lrr
 	jsr	L2ba
@@ -202,6 +235,8 @@ L076:	mw	r2,r4,lrr
 	w	r7,r6,rsvc
 	ow	r5,r4
 
+
+tt_45:
 	slbf	r3,r8
 	srwcf	r3,r3
 	aw	r6,r2
@@ -211,6 +246,8 @@ L076:	mw	r2,r4,lrr
 	w	sph,spl,rsvc
 	ob	r6,r6
 
+
+tt_65:
 	riw1	sph,spl
 	iw	0x0,r6
 	slbf	r5,r8
@@ -223,8 +260,10 @@ L076:	mw	r2,r4,lrr
 	cmb	r6,r2,rsvc
 	ow	r7,r2
 
+
 	nop
 
+tt_66:
 	mb	r4,r8
 	mbf	r2,r4
 	r	r7,r6
@@ -235,6 +274,7 @@ L094:	srw	r3,r3
 	jzbf	L094
 L097:	jsr	L1d7
 	nw	r2,r6
+tt_67:
 	riw1	sph,spl
 	ib	0x1,r8
 	jsr	L1d7
@@ -255,10 +295,13 @@ L0a2:	lgl	r4
 	orw	r2,gl,rsvc
 	ow	gh,gl
 
+
+tt_23:
 	ll	0x4,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	mw	r6,r2
+tt_73:
 	jsr	L0c6
 	sw	r6,spl
 	mw	spl,r4
@@ -272,11 +315,15 @@ L0b5:	riw1	r3,r2
 	dw1f	r6,r6
 	jzf	L0b5
 L0bb:	nop
+tt_34:
 	mw	spl,r2,lrr
 	aw	r6,spl
 	riw1	sph,spl
 	iw	0x0,r4
 	jmp	L0b2
+
+
+tt_62:
 	jsr	L030
 	jmp	L0b2
 
@@ -319,6 +366,7 @@ L0d5:	r	r5,r4
 	al	0x3,r4
 	cib	r5
 
+tt_19:
 	r	sph,spl
 	iw	0x0,r2
 
@@ -329,12 +377,15 @@ L0d5:	r	r5,r4
 	r	r3,r2
 	iw	0x0,r6
 
+tt_89:
 	mw	r6,r2,lrr
 	aw	r6,r2
 	r	r3,r2
 	iw	0x0,r6
+tt_90:
 	mw	r6,r2,lrr
 	aw	r2,r6
+tt_80:
 	jzt	L0fd
 	mw	r2,r4,lrr
 	jsr	L12e
@@ -361,24 +412,39 @@ L0ef:	jsr	L0c6
 	jsr	L12e
 L0fb:	dw1	spl,spl
 	jmp	L107
+
+
 L0fd:	jsr	L030
 	jmp	L245
+
+
+tt_83:
 	jnf	L189
+tt_84:
 	tcw	r6,r6
+tt_86:
 	nl	0x7f,r7
+tt_87:
 	al	0x80,r7
+tt_39:
 	nw	r2,r6
+tt_38:
 	orw	r2,r6
+tt_88:
 	ocw	r6,r6
+tt_40:
 	awf	r6,r2
 L107:	w	sph,spl,rsvc
 	ow	r3,r2
 
+
+tt_41:
 	swf	r2,r6
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 
+tt_32:
 	riw1	sph,spl
 	iwf	0x0,r6
 	jzt	L164
@@ -403,17 +469,17 @@ L11d:	w	sph,spl,rsvc
 
 
 ; possibly opcode 0x8d - DVI - DiVide Integers
-	jsr	L13e
+tt_33:	jsr	L13e
 	jmp	L11b
 
 
-	jsr	L14f
+tt_35:	jsr	L14f
 	jcf	L11d
 	jmp	L166
 
 
 ; possibly opcode 0xcb - CHK - CHecK against subrange bounds
-	cwf	r6,r2
+tt_68:	cwf	r6,r2
 	jvf	L127
 	mbf	r3,r3
 L127:	jnt	range_error
@@ -431,6 +497,7 @@ L12e:	xw	r2,r2
 	cwf	r4,r6
 	jnf	L139
 	jmp	L133
+
 L132:	slw	r4,r4
 L133:	srwf	r7,r7
 	jcf	L132
@@ -492,9 +559,11 @@ L15a:	slwc	r4,r4
 	db1	r8,r8
 	jzbf	L15a
 	icw1	r6,r6
-	r	r7,r6
+tt_15:	r	r7,r6
 	iw	0x0,r6
+tt_85:
 L163:	dw1	spl,spl
+tt_97:
 L164:	w	sph,spl,rsvc
 	ow	r7,r6
 
@@ -507,7 +576,8 @@ divide_by_zero:
 	ll	0x6,r6		; raise exception 6 - divide by zero
 	jmp	raise_exception
 
-	mw	spl,r4
+
+tt_64:	mw	spl,r4
 	aw	r2,spl,lrr
 	cwf	r2,r6
 	jnf	L178
@@ -772,8 +842,9 @@ L231:	riw1	sph,spl
 	db1f	r7,r7
 	jzf	L231
 	aw	r6,spl
-	tl	0x1,r2
+tt_77:	tl	0x1,r2
 	jzbf	L296
+tt_30:
 L23c:	ll	0xff,r3,lrr
 	slbf	r6,r2
 	cmb	r3,r7
@@ -785,26 +856,32 @@ L242:	awc	r2,ipcl,lrr
 	dw1	ipcl,r8
 
 ; opcode 0x9c - NOP - No OPeration
+tt_10:
+tt_11:
 L245:	nop			; XXX does a translation happen here?
 
 
-	xwf	r2,r4
+tt_75:	xwf	r2,r4
 	jzf	L23c
 	jmp	L296
 
-	xwf	r2,r4
+
+tt_76:	xwf	r2,r4
 	jzt	L23c
 	jmp	L296
 
-	nop	,lrr
+
+tt_31:	nop	,lrr
 	jmp	L250
 
-	srbf	r2,r2,lrr
+
+tt_78:	srbf	r2,r2,lrr
 	jct	L245
 L250:	slbf	r7,r3
 	jmp	L23f
 
-	ll	0x4,r4
+
+tt_79:	ll	0x4,r4
 	lgl	r4,lrr
 	aw	gl,r6
 	ll	0x0,r8
@@ -926,7 +1003,6 @@ L29f:	sw	gl,ipcl
 	mw	r2,gl
 	jmp	L257
 
-
 L2a2:	lgl	r6
 	mw	r4,gl
 	ll	0x0,r4
@@ -965,6 +1041,8 @@ L2ba:	jnf	L2af
 	iw	0x0,r2
 	aw	r2,r6
 	jmp	L2b2
+
+
 L2c5:	jmp	L590
 
 
@@ -1010,7 +1088,8 @@ L2dc:	mw	gl,r2
 op_bpt:	ll	0xe,r6		; raise exception 14 - halt or breakpoint
 	jmp	raise_exception
 
-	al	0xfd,spl
+
+tt_63:	al	0xfd,spl
 	cdb	sph
 	mw	r2,r6
 	mw	r4,r2
@@ -1042,20 +1121,26 @@ L2e9:	riw1	r7,r6
 	nop
 
 
-	al	0xff,ipcl
+tt_12:	al	0xff,ipcl
 	cdb	ipch
 
+tt_08:
+tt_09:
+tt_13:
 	nop
 	nop
 
-	al	0x80,r3
-	jmp	L32f
+tt_58:	al	0x80,r3
+tt_57:	jmp	L32f
 
-	jmp	L39a
 
-	jmp	L37d
+tt_60:	jmp	L39a
 
-	mwf	r2,r6
+
+tt_59:	jmp	L37d
+
+
+tt_69:	mwf	r2,r6
 	jzt	L313
 	ll	0x8e,r3
 	ll	0x0,r8
@@ -1085,6 +1170,7 @@ L315:	slwf	r2,r2
 	al	0x82,r3
 	jnbf	L31d
 	jmp	L4bd
+
 L31d:	cl	0x10,r3
 	jc8t	floating_point_error
 	al	0xf1,r3
@@ -1223,6 +1309,7 @@ L393:	srbcf	gh,gh
 	jzbf	L390
 	jmp	L3d4
 
+
 L39a:	jsr	L222
 	jzt	floating_point_error
 	jsr	L1bd
@@ -1329,6 +1416,7 @@ L3f6:	w	sph,spl
 L3fa:	xw	r2,r2
 	xw	r6,r6
 	jmp	L3f3
+
 L3fd:	dw1	spl,spl
 	jsr	L4b4
 
@@ -1338,13 +1426,14 @@ floating_point_error:
 
 
 ; dispatch opcodes 0x90..0x9f
-	ll	0x0,r7
+tt_36:	ll	0x0,r7
 	nl	0xf,r6
 	mi	r7,r6
 	jmp	L410
 
+
 ; dispatch opcodes 0xb8..0xbf
-	mb	r6,r4
+tt_55:	mb	r6,r4
 	r	sph,spl
 	iw	0x0,r6
 	ll	0x0,r5
@@ -1352,10 +1441,12 @@ floating_point_error:
 	mi	r5,r4
 	jmp	L420
 
-	ll	0x0,r7
+
+tt_81:	ll	0x0,r7
 	nl	0x7,r6
 	mi	r7,r6
 	jmp	L428
+
 
 ; jump table for opcodes 0x90..0x9f
 L410:	jmp	L288	; 0x90 CPL  - Call Procedure Local
@@ -1375,6 +1466,7 @@ L410:	jmp	L288	; 0x90 CPL  - Call Procedure Local
 	jmp	op_bpt	; 0x9e BPT  - Break PoinT
 	jmp	L550	; 0x9f BNOT - Boolean NOT (was RBP in early releases)
 
+
 ; jump table for opcodes 0xb8..0xbf
 L420:	jmp	L489	; 0xb8 
 	jmp	L497
@@ -1385,6 +1477,7 @@ L420:	jmp	L489	; 0xb8
 	jmp	L315	; 0xbe - TNC - TruNCate real
 	jmp	L315	; 0xbf - RND - RouND real
 
+
 L428:	jmp	L0ef
 	jmp	L076
 	jmp	L1c2
@@ -1394,32 +1487,40 @@ L428:	jmp	L0ef
 	jmp	L510
 	jmp	L538
 
-	swf	r2,r6
+
+tt_46:	swf	r2,r6
 L431:	jzt	L4c3
 	jmp	L4bd
 
-	swf	r2,r6
+
+tt_47:	swf	r2,r6
 	jzf	L4c3
 	jmp	L4bd
 
-	cwf	r6,r2
+
+tt_48:	cwf	r6,r2
 	jvf	L447
 	jmp	L446
 
-	cwf	r2,r6
+
+tt_49:	cwf	r2,r6
 	jvf	L447
 	jmp	L449
 
-	jsr	L44c
+
+tt_70:	jsr	L44c
 	jmp	L4bd
 
+
 	nop
-	jsr	L44c
+
+tt_71:	jsr	L44c
 	jnbt	L446
 	jct	L446
 	jmp	L449
 
-	jsr	L44c
+
+tt_72:	jsr	L44c
 	jnbt	L449
 	jct	L449
 L446:	mbf	r3,r3
@@ -1443,15 +1544,17 @@ L455:	xb	r3,r8
 	rfs
 
 
-	cwf	r6,r2
+tt_50:	cwf	r6,r2
 	jcf	L4c3
 	jmp	L4bd
 
-	cwf	r2,r6
+
+tt_51:	cwf	r2,r6
 	jcf	L4c3
 	jmp	L4bd
 
-	jsr	L473
+
+tt_52:	jsr	L473
 	cw	r4,gl
 	jzbf	L4b6
 	jzf	L484
@@ -1460,7 +1563,8 @@ L455:	xb	r3,r8
 	jc8t	L490
 	jmp	L46c
 
-	jsr	L473
+
+tt_53:	jsr	L473
 	orw	r4,gl
 	cw	gl,r4
 	jc8f	L4b6
@@ -1605,7 +1709,9 @@ L4dd:	dw1	ipcl,spl
 	jsr	L2b8
 	mw	r2,gl
 	jmp	L55b
-	icb1f	r4,r8
+
+
+tt_74:	icb1f	r4,r8
 	jnf	L4e6
 
 	tcb	r4,r4		; r4 := -r4
@@ -1656,19 +1762,19 @@ L4f7:	jsr	updatetib
 
 
 ; int 3
-	ll	0x8,r2
+tt_03:	ll	0x8,r2
 	jmp	L507
 
 ; int 2
-	ll	0x4,r2
+tt_02:	ll	0x4,r2
 	jmp	L507
 
 ; int 1
-	ll	0x2,r2
+tt_01:	ll	0x2,r2
 	jmp	L507
 
 ; int 0
-	ll	0x1,r2		; r2 := 1
+tt_00:	ll	0x1,r2		; r2 := 1
 
 L507:	ll	0xfc,r5		; r5:4 := 0xfc40
 	ll	0x40,r4
@@ -1809,6 +1915,7 @@ L563:	dw1	spl,spl		; [--sp] := mp
 	iw	0x0,gl
 	jmp	L573
 
+
 L570:	mw	r4,r2
 	r	r5,r4
 	iw	0x0,r4
@@ -1852,6 +1959,7 @@ L587:	ll	0x3,r9		; g := rq
 	mw	gl,r2
 	jmp	L5d1
 
+tt_07:
 L58e:	lgl	r2		; rq := r7:6
 	mw	r6,gl
 
@@ -1991,6 +2099,7 @@ L5d6:	icw2	rgl,r2		; r3:2 := CTP + 4
 
 	jmp	L2dc
 
+
 	nop
 
 
@@ -2029,5 +2138,8 @@ L5fc:	jsr	L2b9
 	jmp	L29f
 
 
-; optional fourth MICROM for additional instructions
+; optional fourth MICROM for extended instructions
+; If an extended instruction jumps here, and there is no MICROM present,
+; the MIB will contain a jmp 000 instruction, and at 000 there is a
+; jmp unimplemented_instruction.
 L600:
