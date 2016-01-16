@@ -8,10 +8,14 @@
 
 ; Note that there are jumps and subroutine returns that occur on
 ; microinstructions that aren't explicit flow control instructions, due
-; to the translation PLAs in the control chip. These PLAs have only been
-; partially decoded. The branch targets of the translations have labels
-; of the form tt_nn, where nn is the output number of array 4 that specifies
-; the particular target.
+; to the translation PLAs in the control chip. At present, only the OR planes
+; of these PLAs have been transcribed.  The origin addresses of the
+; translations (matched by array 1, the AND plane of the first PLA) have not
+; yet been transcribed, but the branch targets of the translations (ouputs
+; of array 4, the OR plane of the second PLA) are designated here by labels
+; of the form tt_nn, where nn is row number of array 4.  There are no labels
+; tt_14, tt_98, and tt_99, because rows 98 and 99 are unused, and row 14
+; causes a subroutine return rather than a jump to a fixed address.
 
 ; register assignments:
 
