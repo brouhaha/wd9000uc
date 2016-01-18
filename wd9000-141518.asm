@@ -8,14 +8,39 @@
 
 ; Note that there are jumps and subroutine returns that occur on
 ; microinstructions that aren't explicit flow control instructions, due
-; to the translation PLAs in the control chip. At present, only the OR planes
-; of these PLAs have been transcribed.  The origin addresses of the
-; translations (matched by array 1, the AND plane of the first PLA) have not
-; yet been transcribed, but the branch targets of the translations (ouputs
-; of array 4, the OR plane of the second PLA) are designated here by labels
-; of the form tt_nn, where nn is row number of array 4.  There are no labels
-; tt_14, tt_98, and tt_99, because rows 98 and 99 are unused, and row 14
-; causes a subroutine return rather than a jump to a fixed address.
+; to the translation PLAs in the control chip.
+
+; Array 1, the AND plane of the first PLA determines the addresses at which
+; translations occur. Array 2, the corresponding OR plane, determines which
+; translation occurs at that location.  These are shown by comments in this
+; source code, of the form:
+;			; 007: translation 6b (row 11)
+; or, where the translation is effectively being called as a subroutine
+; (through the use of the "lrr" bit of the instruction):
+;			; 034: translation 1f subr (row 39)
+;                          ^               ^            ^
+;                          |               |            |
+;     address -------------+               |            |
+;                                          |            |
+;     translation number ------------------+            |
+;                                                       |
+;     row number in arrays 1 and 2 ---------------------+
+
+; Arrays 3 and 4, the AND and OR plane of the second PLA, respectively,
+; take the translation number, two bits of the translation state register,
+; one byte of the translation register, and one byte of the interrupt
+; register, and perform some combination of loading a new value into the
+; PC from array 4 or the subroutine return register, and/or loading a new
+; value into the translation state register.
+
+; The contents of array 3 have not yet been decoded.
+
+; The branch targets of the translations (ouputs of array 4, the OR
+; plane of the second PLA) are designated here by labels of the form
+; tt_nn, where nn is row number of array 4.  There are no labels
+; tt_14, tt_98, and tt_99, because rows 98 and 99 are unused, and row
+; 14 causes a subroutine return rather than a jump to a fixed address.
+
 
 ; register assignments:
 
@@ -36,7 +61,7 @@
 
 	org	0x000
 
-	jmp	unimplemented_instruction	; addr 0x000
+	jmp	unimplemented_instruction	; addr 0x000	; 000: translation 6b (row 12) XXX bogus?
 
 
   	jmp	reset		; cold start (addr 0x001)
@@ -45,12 +70,14 @@
 tt_95:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
-	mbf	r8,r6
+	mbf	r8,r6		; 004: translation 6b (row 12) XXX bogus?
 
-	ll	0x0,r7
+	ll	0x0,r7		; 005: translation 6b (row 11)
+
+
 tt_96:	mbf	r9,r6
+L007:	ll	0x0,r7		; 007: translation 6b (row 11)
 
-L007:	ll	0x0,r7
 
 tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
@@ -60,7 +87,9 @@ tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 
 	nl	0x7f,r8		; mask off MSB
 	mb	r8,r7
-	mb	r9,r6
+	mb	r9,r6		; 00e: translation 6e (row 14)
+
+
 tt_94:	mbf	r9,r6
 	jnf	L007
 
@@ -71,18 +100,19 @@ tt_94:	mbf	r9,r6
 	iw	0x3,r8
 
 	mb	r8,r6
-	rtsr			; reset translation state
+	rtsr			; reset translation state ; 016: translation 6b (row 00)
+	
 
 tt_04:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
-	mb	r8,r6,,1
+	mb	r8,r6,,1	; 019: translation 3d (row 19) XXX bogus?
 	jmp	L600
 
 
 tt_06:	r	r9,r8		; r9:8, tr := [r9:8]; load ics
 	iw	0x3,r8
-tt_05:	mb	r9,r6,,1
+tt_05:	mb	r9,r6,,1	; 01d: translation 3d (row 19) XXX bogus?
 	jmp	L600
 
 
@@ -97,25 +127,30 @@ tt_92:	mb	r9,r6
 	mb	r8,r7
 
 tt_56:	riw1	sph,spl		; r3:2 := [sp++]
-	iwf	0x0,r2
+	iwf	0x0,r2		; 026: translation 3b (row 20)
+
 
 	riw1	sph,spl		; r5:4 := [sp++]
-	iwf	0x0,r4
+	iwf	0x0,r4		; 028: translation 37 (row 22)
+
 
 	r	sph,spl		; r7:6 := [sp]
-	iwf	0x0,r6
+	iwf	0x0,r6		; 02a: translation 2f (row 24)
+
 	
 tt_37:
 tt_54:	riw1	sph,spl		; r3:2 := [sp++]
-	iwf	0x0,r2
+	iwf	0x0,r2		; 02c: translation 3b (row 21)
+
 
 tt_82:	r	sph,spl		; r7:6 := [sp]
-	iwf	0x0,r6
+	iwf	0x0,r6		; 02e: translation 37 (row 23)
+
 
 	nop
 
 
-L030:	nop
+L030:	nop			; 030: translation 7a (row 26)
 
 
 tt_16:
@@ -124,12 +159,12 @@ L031:	dw1	spl,spl
 	ob	r6,r6
 
 	
-tt_20:	dw1	spl,spl,lrr
+tt_20:	dw1	spl,spl,lrr	; 034: translation 1f subr (row 39)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 	
-tt_21:	dw1	spl,spl,lrr
+tt_21:	dw1	spl,spl,lrr	; 037: translation 76 subr (row 53)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
@@ -138,69 +173,91 @@ tt_21:	dw1	spl,spl,lrr
 L03a:	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
 	ll	0x0,r6
 
-	dw1	spl,spl
+	dw1	spl,spl		; 03c: translation 5d (row 55)
+
+
 tt_17:	ll	0x0,r7
 	al	0xe1,r6
 
-	aw	mpl,r6
-tt_27:	nop	,lrr
-	aw	mpl,r6
+	aw	mpl,r6		; 03f: translation 73 (row 70)
+
+
+tt_27:	nop	,lrr		; 040: translation 7a subr (row 35)
+	aw	mpl,r6		; 041: translation 73 (row 72, 73)
+
+
 tt_18:	ll	0x0,r7
 	al	0xd1,r6
 	ll	0x5,r4
 	lgl	r4
-	aw	gl,r6
+	aw	gl,r6		; 046: translation 73 (row 71)
+
+
 tt_25:	ll	0x5,r4
-	lgl	r4,lrr
-	aw	gl,r6
-tt_29:	mw	mpl,r4,lrr
+	lgl	r4,lrr		; 048: translation 7a subr (row 35)
+	aw	gl,r6		; 049: translation 73 (row 72, 74)
+
+
+tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40)
 	jzf	L0d3,lrr
 	jsr	L030
-	aw	r4,r6
+	aw	r4,r6		; 04d: translation 73 (row 74)
+
 
 ; opcode 0x9a LDE - LoaD word Extended
 L04e:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
-	aw	r2,r6
+	aw	r2,r6		; 051: translation 73 (row 73)
+
+
 tt_22:	ll	0x4,r4
-	lgl	r4,lrr
+	lgl	r4,lrr		; 053: translation 7a subr (row 36)
 	aw	gl,r6
-	dw1	spl,spl
-tt_24:	nop	,lrr
+	dw1	spl,spl		; 055: translation 5d (row 56)
+
+
+tt_24:	nop	,lrr		; 056: translation 7a subr (row 27)
 	aw	mpl,r6
-	dw1	spl,spl
+	dw1	spl,spl		; 058: translation 5d (row 64)
+
+
 tt_26:	ll	0x5,r4
-	lgl	r4,lrr
+	lgl	r4,lrr		; 05a: translation 7a subr (row 28)
 	aw	gl,r6
-	dw1	spl,spl
-tt_28:	mw	mpl,r4,lrr
+	dw1	spl,spl		; 05c: translation 5d (row 64)
+
+
+tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41)
 	jzf	L0d3,lrr
 
 	jsr	L030
 	aw	r4,r6
-	dw1	spl,spl
+	dw1	spl,spl		; 061: translation 5d (row 65)
+
 
 ; opcode 0x9b LAE - Load Address Extended
 L062:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
-	dw1	spl,spl
-tt_42:	nop	,lrr
+	dw1	spl,spl		; 066: translation 5d (row 57)
+
+
+tt_42:	nop	,lrr		; 067: translation 7a subr (row 29)
 	aw	mpl,r6		; [mpl+r7:6] := r3:2
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
 tt_43:	ll	0x5,r4		; [bp+r7:6] := r3:2
-	lgl	r4,lrr
+	lgl	r4,lrr		; 06c: translation 7a subr (row 30)
 	aw	gl,r6
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
-tt_44:	mw	mpl,r4,lrr
+tt_44:	mw	mpl,r4,lrr	; 070: translation 1f subr (row 42)
 	jzf	L0d3,lrr
 	jsr	L030
 	aw	r6,r4
@@ -208,7 +265,7 @@ tt_61:	w	r5,r4,rsvc
 	ow	r3,r2
 
 
-L076:	mw	r2,r4,lrr
+L076:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43)
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
@@ -250,7 +307,9 @@ L094:	srw	r3,r3
 	db1	r4,r4
 	jzbf	L094
 L097:	jsr	L1d7
-	nw	r2,r6
+	nw	r2,r6		; 098: translation 5d (row 58)
+
+
 tt_67:	riw1	sph,spl
 	ib	0x1,r8
 	jsr	L1d7
@@ -273,7 +332,7 @@ L0a2:	lgl	r4
 
 
 tt_23:	ll	0x4,r4
-	lgl	r4,lrr
+	lgl	r4,lrr		; 0ac: translation 7a subr (row 31)
 	aw	gl,r6
 	mw	r6,r2
 tt_73:	jsr	L0c6
@@ -288,8 +347,10 @@ L0b5:	riw1	r3,r2
 	ow	gh,gl
 	dw1f	r6,r6
 	jzf	L0b5
-L0bb:	nop
-tt_34:	mw	spl,r2,lrr
+L0bb:	nop			; 0bb: translation 3e (row 75)
+
+
+tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44)
 	aw	r6,spl
 	riw1	sph,spl
 	iw	0x0,r4
@@ -301,25 +362,25 @@ tt_62:	jsr	L030
 
 
 ; opcode 0x92 LCA - Load Constant Address
-L0c3:	mw	mpl,r4,lrr
+L0c3:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45)
 	jzf	L0d3,lrr
 	jmp	L2a2
 
 
 ; fetch a byte operand?
-L0c6:	nop			; a translation most likely happens here
+L0c6:	nop			; 0c3: translation 1f (row 46)
 
 
 ; opcode 0x95 CXI - Call eXternal procedure Intermediate
 L0c7:	jsr	L0c6
 	mw	r6,r2
-	mw	mpl,r4,lrr
+	mw	mpl,r4,lrr	; 0c9: translation 1f subr (row 47)
 	jzf	L0d3,lrr
 	jmp	L298
 
 
 ; opcode 0x99 LSL - Load Static Link
-L0cc:	mw	mpl,r4,lrr	; lm := mp
+L0cc:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48)
 	jzf	L0d3,lrr	; for i := 1 to DB do
 	al	0xfd,r4		; lm := lm^.m.msstat
 	cdb	r5
@@ -336,7 +397,8 @@ L0d5:	r	r5,r4
 	jzbf	L0d5
 
 	al	0x3,r4
-	cib	r5
+	cib	r5		; 0da: translation 6b (row 01)
+
 
 tt_19:	r	sph,spl
 	iw	0x0,r2
@@ -346,16 +408,21 @@ tt_19:	r	sph,spl
 	cib	r3
 
 	r	r3,r2
-	iw	0x0,r6
+	iw	0x0,r6		; 0e1: translation 5d (row 65, 66)
 
-tt_89:	mw	r6,r2,lrr
+
+tt_89:	mw	r6,r2,lrr	; 0e2: translation 7a subr (row 37)
 	aw	r6,r2
 	r	r3,r2
-	iw	0x0,r6
-tt_90:	mw	r6,r2,lrr
-	aw	r2,r6
+	iw	0x0,r6		; 0e5: translation 5d (row 66, 67)
+
+
+tt_90:	mw	r6,r2,lrr	; 0e6: translation 7a subr (row 37)
+	aw	r2,r6		; 0e7: translation 5d (row 67)
+
+
 tt_80:	jzt	L0fd
-	mw	r2,r4,lrr
+	mw	r2,r4,lrr	; 0e9: translation 7a subr (row 32)
 	jsr	L12e
 
 	r	sph,spl
@@ -372,7 +439,7 @@ L0ef:	jsr	L0c6
 	aw	r2,r6
 	ow	r7,r6
 
-	dw1	spl,spl,lrr
+	dw1	spl,spl,lrr	; 0f5: translation 1f subr (row 49)
 	w	sph,spl
 	ow	r7,r6
 	mwf	r4,r2
@@ -387,12 +454,26 @@ L0fd:	jsr	L030
 
 
 tt_83:	jnf	L189
-tt_84:	tcw	r6,r6
-tt_86:	nl	0x7f,r7
-tt_87:	al	0x80,r7
-tt_39:	nw	r2,r6
-tt_38:	orw	r2,r6
-tt_88:	ocw	r6,r6
+
+
+tt_84:	tcw	r6,r6		; 100: translation 5d (row 68, 69)
+
+
+tt_86:	nl	0x7f,r7		; 101: translation 5d (row 68, 69)
+
+
+tt_87:	al	0x80,r7		; 102: translation 5d (row 68)
+
+
+tt_39:	nw	r2,r6		; 103: translation 5d (row 68)
+
+
+tt_38:	orw	r2,r6		; 104: translation 5d (row 69)
+
+
+tt_88:	ocw	r6,r6		; 105: translation 5d (row 69)
+
+
 tt_40:	awf	r6,r2
 L107:	w	sph,spl,rsvc
 	ow	r3,r2
@@ -496,7 +577,8 @@ L14a:	slbf	r8,r8
 L14b:	cw	r6,r2
 	jc8t	L154
 	mw	r2,r4
-	xw	r2,r2
+	xw	r2,r2		; 14e: translation 6b (row 02)
+
 
 L14f:	riw1	sph,spl		; r7:6 := [sp++]
 	iwf	0x0,r6
@@ -516,7 +598,9 @@ L15a:	slwc	r4,r4
 	slwcf	r2,r2
 	db1	r8,r8
 	jzbf	L15a
-	icw1	r6,r6
+	icw1	r6,r6		; 160: translation 6b (row 03)
+
+
 tt_15:	r	r7,r6
 	iw	0x0,r6
 tt_85:
@@ -536,7 +620,7 @@ divide_by_zero:
 
 
 tt_64:	mw	spl,r4
-	aw	r2,spl,lrr
+	aw	r2,spl,lrr	; 16b: translation 1f subr (row 50)
 	cwf	r2,r6
 	jnf	L178
 	aw	r6,r4
@@ -672,14 +756,17 @@ L1c2:	mw	spl,r4
 L1cd:	srwf	r3,r3
 	db1	r6,r6
 	jzbf	L1cd
-L1d0:	slbc	r7,r6
+L1d0:	slbc	r7,r6		; 1d0: translation 5d (row 59)
+
 
 L1d1:	ll	0xf,r6
 	nb	r2,r6
 	srw	r3,r3
 	srw	r3,r3
 	srw	r3,r3
-	srw	r3,r3
+	srw	r3,r3		; 1d6: translation 6b (row 04)
+
+
 L1d7:	ll	0x0,r7
 	ll	0x1,r6
 	srbf	r6,r6
@@ -751,7 +838,9 @@ L206:	jsr	L21c
 
 L210:	sb	r7,r6
 	jsr	L213
-	aw	r6,spl
+	aw	r6,spl		; 212: translation 3e (row 76)
+
+
 L213:	riw1	sph,spl
 	iw	0x0,r4
 
@@ -784,7 +873,8 @@ L222:	wiw1	sph,spl
 L229:	jzt	L245
 	jsr	L21c
 	jzf	L22d
-L22c:	dw1	r2,spl
+L22c:	dw1	r2,spl		; 22c: translation 3e (row 77)
+
 L22d:	cb	r6,r7
 	jc8f	L230
 	mb	r6,r7
@@ -799,24 +889,27 @@ L231:	riw1	sph,spl
 
 	db1f	r7,r7
 	jzf	L231
-	aw	r6,spl
+	aw	r6,spl		; 239: translation 3e (row 78)
+
+
 tt_77:	tl	0x1,r2
 	jzbf	L296
 tt_30:
-L23c:	ll	0xff,r3,lrr
+L23c:	ll	0xff,r3,lrr	; 23c: translation 1f subr (row 51)
 	slbf	r6,r2
 	cmb	r3,r7
 L23f:	dw1	ipcl,r2
-	icw2	r6,ipcl,lrr
+	icw2	r6,ipcl,lrr	; 240: translation 75 subr (row 81)
 	srwcf	ipch,ipch
-L242:	awc	r2,ipcl,lrr
+L242:	awc	r2,ipcl,lrr	; 242: translation 6e subr (row 15)
 	jcf	L245
-	dw1	ipcl,r8
+	dw1	ipcl,r8		; 244: translation 79 (row 84)
+
 
 ; opcode 0x9c - NOP - No OPeration
 tt_10:
 tt_11:
-L245:	nop			; XXX does a translation happen here?
+L245:	nop			; 245: translation 3e (row 79)
 
 
 tt_75:	xwf	r2,r4
@@ -829,18 +922,18 @@ tt_76:	xwf	r2,r4
 	jmp	L296
 
 
-tt_31:	nop	,lrr
+tt_31:	nop	,lrr		; 24c: translation 76 subr (row 54)
 	jmp	L250
 
 
-tt_78:	srbf	r2,r2,lrr
+tt_78:	srbf	r2,r2,lrr	; 24e: translation 76 subr (row 54)
 	jct	L245
 L250:	slbf	r7,r3
 	jmp	L23f
 
 
 tt_79:	ll	0x4,r4
-	lgl	r4,lrr
+	lgl	r4,lrr		; 253: translation 7a subr (row 36)
 	aw	gl,r6
 	ll	0x0,r8
 	jmp	L2e9
@@ -872,7 +965,7 @@ L257:	r	gh,gl
 	jct	L2c5
 	cwf	r8,spl
 	jct	L2c5
-	slw	ipcl,ipcl,lrr
+	slw	ipcl,ipcl,lrr	; 26c: translation 75 subr (row 82)
 
 	ll	0xfd,r6		; r7:6 := 0xfffd (-3)
 	ll	0xff,r7
@@ -915,7 +1008,7 @@ L27d:	riw1	sph,spl
 	jmp	L5fc
 
 
-	nop	,lrr
+	nop	,lrr		; 287: translation 6e (row 16)
 
 
 ; opcode 0x90 LDCB - LoaD Constant Byte
@@ -940,11 +1033,11 @@ L291:	ll	0x7,r4
 
 
 ; opcode 0x94 CXG - Call eXternal procedure Global
-L294:	ll	0x5,r4,lrr
+L294:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52)
 	jmp	L29c
 
 
-L296:	nop	,lrr
+L296:	nop	,lrr		; 296: translation 1f subr (row 52)
 	nop	,rsvc
 
 
@@ -975,7 +1068,9 @@ L2aa:	r	gh,gl
 	iw	0x0,r6
 	aw	gl,r6
 	r	r7,r6
-	ib	0x1,r5
+	ib	0x1,r5		; 2ae: translation 6b (row 05)
+
+
 L2af:	ll	0x2,r2
 	lgl	r2
 	aw	gl,r6
@@ -984,7 +1079,9 @@ L2b2:	ll	0x4,r2
 	r	r7,r6
 	iw	0x0,r6
 	riw2	r7,r6
-	iw	0x0,r2
+	iw	0x0,r2		; 2b7: translation 6b (row 06)
+
+
 L2b8:	mbf	r5,r6
 L2b9:	ll	0x0,r7
 
@@ -1014,7 +1111,7 @@ L2c6:	dw1	mpl,mpl		; sp := mp (adjusted)
 	cib	mph
 
 	ll	0x4,r8		; g = segb
-	lgl	r8,lrr
+	lgl	r8,lrr		; 2cd: translation 7a subr (row 33)
 
 	riw1	sph,spl
 	iw	0x0,ipcl
@@ -1039,7 +1136,7 @@ L2dc:	mw	gl,r2
 	jmp	L242
 
 
-	nop
+	nop			; 2df: translation 3d (row 18)
 
 
 ; opcode 0x9e - BPT - Break PoinT
@@ -1056,7 +1153,9 @@ tt_63:	al	0xfd,spl
 ; opcode 0xbd - SWAP - SWAP top of stack with next of stack
 L2e6:	w	sph,spl
 	ow	r3,r2
-	dw1	spl,spl
+	dw1	spl,spl		; 2e8: translation 5d (row 60)
+
+
 L2e9:	riw1	r7,r6
 	iw	0x0,r4
 	swf	r4,r2
@@ -1075,17 +1174,19 @@ L2e9:	riw1	r7,r6
 
 	nop
 	nop
-	nop
-	nop
+	nop			; 2f9: translation 6e (row 17) ?
+	nop			; 2fa: translation 5e (row 85) ?
 
 
 tt_12:	al	0xff,ipcl
-	cdb	ipch
+	cdb	ipch		; 2fc: translation 6b (row 13)
+
 
 tt_08:
 tt_09:
 tt_13:	nop
-	nop
+	nop			; 2fe: translation 6b (row 13)
+
 
 tt_58:	al	0x80,r3
 tt_57:	jmp	L32f
@@ -1558,7 +1659,9 @@ L484:	riw1	r3,r2
 	iw	0x0,r4
 	riw1	sph,spl
 	iw	0x0,gl
-	db1f	r8,r8
+	db1f	r8,r8		; 488: translation 6b (row 07)
+
+
 L489:	jsr	L473
 	orw	gl,r4
 	cw	r4,gl
@@ -1575,12 +1678,12 @@ L491:	riw1	r3,r2
 	jmp	L4c2
 
 
-L497:	mw	r6,r4,lrr
+L497:	mw	r6,r4,lrr	; 497: translation 7a subr (row 38)
 	jsr	L4a4
 	jmp	L431
 
 
-L49a:	mw	r6,r4,lrr
+L49a:	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34)
 	jsr	L4a4
 	jcf	L4c3
 	jmp	L4bd
@@ -1589,7 +1692,7 @@ L49a:	mw	r6,r4,lrr
 	nop
 
 
-L49f:	mw	r6,r4,lrr
+L49f:	mw	r6,r4,lrr	; 49f: translation 7a subr (row 38)
 	jsr	L4a4
 	jzt	L4c3
 	jct	L4c3
@@ -1613,7 +1716,9 @@ L4a8:	riw1	r3,r2
 	dw1	r6,r6
 	jzbf	L4a8
 L4b4:	r	sph,spl
-	iw	0x0,mpl
+	iw	0x0,mpl		; 4b5: translation 6b (row 08)
+
+
 L4b6:	cb	r7,r6
 	jc8t	L4ba
 	sb	r6,r7
@@ -1622,13 +1727,17 @@ L4ba:	ab	r8,spl
 	cib	sph
 L4bc:	dw1	spl,spl
 L4bd:	ll	0x0,r6
-	ll	0x0,r7
+	ll	0x0,r7		; 4be: translation 5d (row 61)
+
+
 L4bf:	sb	r6,r7
 	ab	r7,spl
 	cib	sph
 L4c2:	dw1	spl,spl
 L4c3:	ll	0x1,r6
-	ll	0x0,r7
+	ll	0x0,r7		; 4c4: translation 5d (row 62)
+
+
 L4c5:	ll	0x1,r8
 	ll	0x1,gl
 	slwf	r6,r6
@@ -1665,7 +1774,7 @@ L4d1:	r	mph,mpl
 L4dd:	dw1	ipcl,spl
 	jsr	L2b8
 	mw	r2,gl
-	jmp	L55b
+	jmp	L55b		; 4e0: translation 5d (row 63) - OVERRIDDEN BY JMP
 
 
 tt_74:	icb1f	r4,r8
@@ -1903,7 +2012,8 @@ L57f:	w	r3,r2
 	iw	0x0,mpl
 
 	ll	0x3,r2		; g := rq
-	lgl	r2
+	lgl	r2		; 586: translation 6b (row 09)
+
 
 L587:	ll	0x3,r9		; g := rq
 	lgl	r9
@@ -1917,8 +2027,9 @@ L587:	ll	0x3,r9		; g := rq
 	jmp	L5d1
 
 tt_07:
-L58e:	lgl	r2		; rq := r7:6
-	mw	r6,gl
+L58e:	lgl	r2		; rq := r7:6	; 58e: translation 6d (row 86) ?
+	mw	r6,gl		; 58f: translation 3e (row 80)
+
 
 L590:	r	r7,r6		; r3:2 := [r7:6]
 	iw	0x0,r2
@@ -1960,10 +2071,11 @@ updatetib:
 	
 	dw1	r8,r8		; ctp^.t.ipc := ipc (adjusted)
 	sw	gl,ipcl
-	slw	ipcl,ipcl
+	slw	ipcl,ipcl	; 2ae: translation 75 (row 83)
+
+
 L5af:	wiw2	r9,r8
-	ow	ipch,ipcl
-; XXX does a translation occur here?
+	ow	ipch,ipcl	; 5b0: translation 6b (row 10)
 
 
 ; boostrap code
