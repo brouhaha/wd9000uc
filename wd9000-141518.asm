@@ -137,7 +137,8 @@ tt_56:	riw1	sph,spl		; r3:2 := [sp++]
 	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6		; 02a: translation 2f (row 24)
 
-	
+
+; opcode 0xa0..0xaf even?
 tt_37:
 tt_54:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2		; 02c: translation 3b (row 21)
@@ -153,39 +154,46 @@ tt_82:	r	sph,spl		; r7:6 := [sp]
 L030:	nop			; 030: translation 7a (row 26)
 
 
+
+; opcode 0x00..0x1f: SLDCi - Short Load Word Constant
 tt_16:
 L031:	dw1	spl,spl
 	w	sph,spl,rsvc
 	ob	r6,r6
 
 	
+; opcode 0x80: LDCB - LoaD Constant Byte
 tt_20:	dw1	spl,spl,lrr	; 034: translation 1f subr (row 39)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 	
+; opcode 0x81: LDCI - LoaD Constant Immediate
 tt_21:	dw1	spl,spl,lrr	; 037: translation 76 subr (row 53)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 
-; opcode 0x98 LDCN - LoaD Constant Nil
+; opcode 0x98: LDCN - LoaD Constant Nil
 L03a:	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
 	ll	0x0,r6
 
 	dw1	spl,spl		; 03c: translation 5d (row 55)
 
 
+; opcode 0x20..0x2f: SLDLi - Short Local Local Word
 tt_17:	ll	0x0,r7
 	al	0xe1,r6
 
 	aw	mpl,r6		; 03f: translation 73 (row 70)
 
 
+; opcode 0x87: LDL - Load Local Word
 tt_27:	nop	,lrr		; 040: translation 7a subr (row 35)
 	aw	mpl,r6		; 041: translation 73 (row 72, 73)
 
 
+; opcode 0x30..0x3f: SLDOi - Short Load Global Word
 tt_18:	ll	0x0,r7
 	al	0xd1,r6
 	ll	0x5,r4
@@ -193,41 +201,47 @@ tt_18:	ll	0x0,r7
 	aw	gl,r6		; 046: translation 73 (row 71)
 
 
+; opcode 0x85: LDO - Load Global Word
 tt_25:	ll	0x5,r4
 	lgl	r4,lrr		; 048: translation 7a subr (row 35)
 	aw	gl,r6		; 049: translation 73 (row 72, 74)
 
 
+; opcode 0x89: LOD - LOaD intermediate word
 tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40)
 	jzf	L0d3,lrr
 	jsr	L030
 	aw	r4,r6		; 04d: translation 73 (row 74)
 
 
-; opcode 0x9a LDE - LoaD word Extended
+; opcode 0x9a: LDE - LoaD word Extended
 L04e:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6		; 051: translation 73 (row 73)
 
 
+; opcode 0x82: LCA - Load Constant Address
 tt_22:	ll	0x4,r4
 	lgl	r4,lrr		; 053: translation 7a subr (row 36)
 	aw	gl,r6
 	dw1	spl,spl		; 055: translation 5d (row 56)
 
 
+; opcode 0x84: LLA - Load Local Address
 tt_24:	nop	,lrr		; 056: translation 7a subr (row 27)
 	aw	mpl,r6
 	dw1	spl,spl		; 058: translation 5d (row 64)
 
 
+; opcode 0x86: LAO - Load Global Address
 tt_26:	ll	0x5,r4
 	lgl	r4,lrr		; 05a: translation 7a subr (row 28)
 	aw	gl,r6
 	dw1	spl,spl		; 05c: translation 5d (row 64)
 
 
+; opcode 0x88: LDA - Load Intermediate Address
 tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41)
 	jzf	L0d3,lrr
 
@@ -236,7 +250,7 @@ tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41)
 	dw1	spl,spl		; 061: translation 5d (row 65)
 
 
-; opcode 0x9b LAE - Load Address Extended
+; opcode 0x9b: LAE - Load Address Extended
 L062:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
@@ -331,6 +345,7 @@ L0a2:	lgl	r4
 	ow	gh,gl
 
 
+; opcode 0x83: LDC - load multiple word constant
 tt_23:	ll	0x4,r4
 	lgl	r4,lrr		; 0ac: translation 7a subr (row 31)
 	aw	gl,r6
@@ -350,6 +365,7 @@ L0b5:	riw1	r3,r2
 L0bb:	nop			; 0bb: translation 3e (row 75)
 
 
+; opcode 0x8e: STM - STore Multiple words
 tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44)
 	aw	r6,spl
 	riw1	sph,spl
@@ -361,7 +377,7 @@ tt_62:	jsr	L030
 	jmp	L0b2
 
 
-; opcode 0x92 LCA - Load Constant Address
+; opcode 0x92: CPI - Call Procedure Intermediate
 L0c3:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45)
 	jzf	L0d3,lrr
 	jmp	L2a2
@@ -371,7 +387,7 @@ L0c3:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45)
 L0c6:	nop			; 0c3: translation 1f (row 46)
 
 
-; opcode 0x95 CXI - Call eXternal procedure Intermediate
+; opcode 0x95: CXI - Call eXternal procedure Intermediate
 L0c7:	jsr	L0c6
 	mw	r6,r2
 	mw	mpl,r4,lrr	; 0c9: translation 1f subr (row 47)
@@ -379,7 +395,7 @@ L0c7:	jsr	L0c6
 	jmp	L298
 
 
-; opcode 0x99 LSL - Load Static Link
+; opcode 0x99: LSL - Load Static Link
 L0cc:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48)
 	jzf	L0d3,lrr	; for i := 1 to DB do
 	al	0xfd,r4		; lm := lm^.m.msstat
@@ -484,6 +500,7 @@ tt_41:	swf	r2,r6
 	ow	r7,r6
 
 
+; opcode 0x8c: MPI: MultiPly integers
 tt_32:	riw1	sph,spl
 	iwf	0x0,r6
 	jzt	L164
@@ -507,11 +524,12 @@ L11d:	w	sph,spl,rsvc
 	ow	r5,r4
 
 
-; possibly opcode 0x8d - DVI - DiVide Integers
+; opcode 0x8d: DVI - DiVide Integers
 tt_33:	jsr	L13e
 	jmp	L11b
 
 
+; opcode 0x8f: MODI - MODulo Integers
 tt_35:	jsr	L14f
 	jcf	L11d
 	jmp	L166
@@ -655,7 +673,7 @@ L185:	wiw1	r3,r2
 L189:	jmp	L245
 
 
-; 0xbc SRS  - build SubRange Set
+; opcode 0xbc: SRS  - build SubRange Set
 op_srs:
 	mb	r3,r8		; r3:2 and r7:6 must both be positive
 	orbf	r7,r8
@@ -894,6 +912,9 @@ L231:	riw1	sph,spl
 
 tt_77:	tl	0x1,r2
 	jzbf	L296
+
+
+; opcode 0x8a: UJP - Unconditional JumP
 tt_30:
 L23c:	ll	0xff,r3,lrr	; 23c: translation 1f subr (row 51)
 	slbf	r6,r2
@@ -906,7 +927,7 @@ L242:	awc	r2,ipcl,lrr	; 242: translation 6e subr (row 15)
 	dw1	ipcl,r8		; 244: translation 79 (row 84)
 
 
-; opcode 0x9c - NOP - No OPeration
+; opcode 0x9c: NOP - No OPeration
 tt_10:
 tt_11:
 L245:	nop			; 245: translation 3e (row 79)
@@ -922,6 +943,7 @@ tt_76:	xwf	r2,r4
 	jmp	L296
 
 
+; opcode 0x8b: UJPL - Unconditional JumP Long
 tt_31:	nop	,lrr		; 24c: translation 76 subr (row 54)
 	jmp	L250
 
@@ -990,7 +1012,7 @@ L257:	r	gh,gl
 	mw	r2,ipcl
 
 
-; opcode 0x97 - CPF - Call Procedure Formal
+; opcode 0x97: CPF - Call Procedure Formal
 L27d:	riw1	sph,spl
 	iw	0x0,r8
 
@@ -1011,12 +1033,12 @@ L27d:	riw1	sph,spl
 	nop	,lrr		; 287: translation 6e (row 16)
 
 
-; opcode 0x90 LDCB - LoaD Constant Byte
+; opcode 0x90: CPL - Call Local Procedure
 L288:	ll	0x7,r4
 	jmp	L28b
 
 
-; opcode 0x91 LDCI - LoaD Constant Immediate
+; opcode 0x91: CPG - Call Global Procedure
 L28a:	ll	0x5,r4
 L28b:	jsr	L0c6
 	ll	0x4,r8
@@ -1026,13 +1048,13 @@ L28b:	jsr	L0c6
 	jmp	L257
 
 
-; opcode 0x93 CXL - Call eXternal procedure Local
+; opcode 0x93: CXL - Call eXternal procedure Local
 L291:	ll	0x7,r4
 	jsr	L0c6
 	jmp	L29c
 
 
-; opcode 0x94 CXG - Call eXternal procedure Global
+; opcode 0x94: CXG - Call eXternal procedure Global
 L294:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52)
 	jmp	L29c
 
@@ -1101,7 +1123,7 @@ L2ba:	jnf	L2af
 L2c5:	jmp	L590
 
 
-; opcode 0x96 - RPU - Return from Procedure User
+; opcode 0x96: RPU - Return from Procedure User
 L2c6:	dw1	mpl,mpl		; sp := mp (adjusted)
 	dw1	mpl,spl
 
@@ -1139,7 +1161,7 @@ L2dc:	mw	gl,r2
 	nop			; 2df: translation 3d (row 18)
 
 
-; opcode 0x9e - BPT - Break PoinT
+; opcode 0x9e: BPT - Break PoinT
 op_bpt:	ll	0xe,r6		; raise exception 14 - halt or breakpoint
 	jmp	raise_exception
 
@@ -1799,7 +1821,7 @@ L4ec:	aw	gl,r4
 	jmp	L5d6
 
 
-; opcode 0x9d LPR - Load Processor Register
+; opcode 0x9d: LPR - Load Processor Register
 L4f0:	r	sph,spl		; r5:4 = [sp]
 	iwf	0x0,r4
 
@@ -1934,6 +1956,7 @@ L53f:	r	r3,r2		; r5:4 := [r3:2]
 	jmp	L587
 
 
+; opcode 0x9f: BNOT - Boolean NOT (was RBP in early releases)
 L550:	r	sph,spl		; r6 := [sp], lower byte, RMW
 	ib	0x5,r6
 
