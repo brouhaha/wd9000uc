@@ -33,13 +33,15 @@
 ; PC from array 4 or the subroutine return register, and/or loading a new
 ; value into the translation state register.
 
-; The contents of array 3 have not yet been decoded.
-
 ; The branch targets of the translations (ouputs of array 4, the OR
 ; plane of the second PLA) are designated here by labels of the form
 ; tt_nn, where nn is row number of array 4.  There are no labels
 ; tt_14, tt_98, and tt_99, because rows 98 and 99 are unused, and row
 ; 14 causes a subroutine return rather than a jump to a fixed address.
+
+; Note that ",rsvc" at the end of an instruction asserts the RNI signal
+; going into array 1 and 2, which results in translation 3e happening on
+; the *next* microinstruction.
 
 
 ; register assignments:
@@ -61,24 +63,26 @@
 
 	org	0x000
 
-	jmp	unimplemented_instruction	; addr 0x000	; 000: translation 6b (row 12) XXX bogus?
+	jmp	unimplemented_instruction
 
 
   	jmp	reset		; cold start (addr 0x001)
 
 
+; from translation 1f, if TSR = X0, and loads TSR := 0
 tt_95:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
-	mbf	r8,r6		; 004: translation 6b (row 12) XXX bogus?
-
+	mbf	r8,r6
 	ll	0x0,r7		; 005: translation 6b (row 11)
 
 
+; from translation 1f, if TSR = X1, and loads TSR := 2
 tt_96:	mbf	r9,r6
 L007:	ll	0x0,r7		; 007: translation 6b (row 11)
 
 
+; from translation 7a, if TSR = X0, and loads TSR := 0
 tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
@@ -90,6 +94,7 @@ tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	mb	r9,r6		; 00e: translation 6e (row 14)
 
 
+; from translation 7a, if TSR = X1, and loads TSR := 2
 tt_94:	mbf	r9,r6
 	jnf	L007
 
@@ -103,29 +108,41 @@ tt_94:	mbf	r9,r6
 	rtsr			; reset translation state ; 016: translation 6b (row 00)
 	
 
+; from end of instruction (translation 3e),
+; if no interrupt, and translation state = X0
 tt_04:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
-	mb	r8,r6,,1	; 019: translation 3d (row 19) XXX bogus?
-	jmp	L600
+	mb	r8,r6,,1	; 019: translation 3d (row 19)
+	jmp	L600		; if no translation occured, undefined opcode
 
 
+; from end of instruction (translation 3e),
+; if no interrupt, and translation state = 01
 tt_06:	r	r9,r8		; r9:8, tr := [r9:8]; load ics
 	iw	0x3,r8
-tt_05:	mb	r9,r6,,1	; 01d: translation 3d (row 19) XXX bogus?
-	jmp	L600
+
+; from end of instruction (translation 3e),
+; if no interrupt, and translation state = 11
+tt_05:	mb	r9,r6,,1	; 01d: translation 3d (row 19)
+	jmp	L600		; if no translation occured, undefined opcode
 
 
+; from translation 76, if TSR = X0, and loads TSR := 2
 tt_91:	riw1	ipch,ipcl	; r7:6 := [ipc++]
-	iw	0x0,r6
+	iw	0x0,r6		; 020: translation 6b (row 12)
 
+
+; from translation 76, if TSR = X1, and loads TSR := 0
 tt_92:	mb	r9,r6
 
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
-	mb	r8,r7
+	mb	r8,r7		; 024: translation 6b (row 12)
 
+
+; opcode 0xc0..0xdf (from translation 3d)
 tt_56:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2		; 026: translation 3b (row 20)
 
@@ -138,12 +155,14 @@ tt_56:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r6		; 02a: translation 2f (row 24)
 
 
-; opcode 0xa0..0xaf even?
-tt_37:
-tt_54:	riw1	sph,spl		; r3:2 := [sp++]
+
+tt_37:	; opcode 0xa0..0xa7, 0xb0..0xb7 (from translation 3d)
+tt_54:	; opcode 0xb8..0xbf (from translation 3d)
+	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2		; 02c: translation 3b (row 21)
 
 
+; opcode 0xe0..0xe7 (from translation 3d)
 tt_82:	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6		; 02e: translation 37 (row 23)
 
@@ -155,45 +174,46 @@ L030:	nop			; 030: translation 7a (row 26)
 
 
 
-; opcode 0x00..0x1f: SLDCi - Short Load Word Constant
+; opcode 0x00..0x1f: SLDCi - Short Load Word Constant (from translation 3d)
 tt_16:
 L031:	dw1	spl,spl
 	w	sph,spl,rsvc
 	ob	r6,r6
 
 	
-; opcode 0x80: LDCB - LoaD Constant Byte
+; opcode 0x80: LDCB - LoaD Constant Byte (from translation 3d)
 tt_20:	dw1	spl,spl,lrr	; 034: translation 1f subr (row 39)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 	
-; opcode 0x81: LDCI - LoaD Constant Immediate
+; opcode 0x81: LDCI - LoaD Constant Immediate (from translation 3d)
 tt_21:	dw1	spl,spl,lrr	; 037: translation 76 subr (row 53)
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 
 ; opcode 0x98: LDCN - LoaD Constant Nil
-L03a:	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
+op_ldcn:
+	ll	0xfc,r7		; r7:6 := 0xfc00 (Nil)
 	ll	0x0,r6
 
-	dw1	spl,spl		; 03c: translation 5d (row 55)
+	dw1	spl,spl		; 03c: translation 5d (row 55) - write one word to stack and end instruction
 
 
-; opcode 0x20..0x2f: SLDLi - Short Local Local Word
+; opcode 0x20..0x2f: SLDLi - Short Local Local Word (from translation 3d)
 tt_17:	ll	0x0,r7
 	al	0xe1,r6
 
 	aw	mpl,r6		; 03f: translation 73 (row 70)
 
 
-; opcode 0x87: LDL - Load Local Word
+; opcode 0x87: LDL - Load Local Word (from translation 3d)
 tt_27:	nop	,lrr		; 040: translation 7a subr (row 35)
 	aw	mpl,r6		; 041: translation 73 (row 72, 73)
 
 
-; opcode 0x30..0x3f: SLDOi - Short Load Global Word
+; opcode 0x30..0x3f: SLDOi - Short Load Global Word (from translation 3d)
 tt_18:	ll	0x0,r7
 	al	0xd1,r6
 	ll	0x5,r4
@@ -201,13 +221,13 @@ tt_18:	ll	0x0,r7
 	aw	gl,r6		; 046: translation 73 (row 71)
 
 
-; opcode 0x85: LDO - Load Global Word
+; opcode 0x85: LDO - Load Global Word (from translation 3d)
 tt_25:	ll	0x5,r4
 	lgl	r4,lrr		; 048: translation 7a subr (row 35)
 	aw	gl,r6		; 049: translation 73 (row 72, 74)
 
 
-; opcode 0x89: LOD - LOaD intermediate word
+; opcode 0x89: LOD - LOaD intermediate word (from translation 3d)
 tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40)
 	jzf	L0d3,lrr
 	jsr	L030
@@ -215,55 +235,57 @@ tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40)
 
 
 ; opcode 0x9a: LDE - LoaD word Extended
-L04e:	jsr	L0c6
+op_lde:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6		; 051: translation 73 (row 73)
 
 
-; opcode 0x82: LCA - Load Constant Address
+; opcode 0x82: LCA - Load Constant Address (from translation 3d)
 tt_22:	ll	0x4,r4
 	lgl	r4,lrr		; 053: translation 7a subr (row 36)
 	aw	gl,r6
-	dw1	spl,spl		; 055: translation 5d (row 56)
+	dw1	spl,spl		; 055: translation 5d (row 56) - write one word to stack and end instruction
 
 
-; opcode 0x84: LLA - Load Local Address
+; opcode 0x84: LLA - Load Local Address (from translation 3d)
 tt_24:	nop	,lrr		; 056: translation 7a subr (row 27)
 	aw	mpl,r6
-	dw1	spl,spl		; 058: translation 5d (row 64)
+	dw1	spl,spl		; 058: translation 5d (row 64) - write one word to stack and end instruction
 
 
-; opcode 0x86: LAO - Load Global Address
+; opcode 0x86: LAO - Load Global Address (from translation 3d)
 tt_26:	ll	0x5,r4
 	lgl	r4,lrr		; 05a: translation 7a subr (row 28)
 	aw	gl,r6
-	dw1	spl,spl		; 05c: translation 5d (row 64)
+	dw1	spl,spl		; 05c: translation 5d (row 64) - write one word to stack and end instruction
 
 
-; opcode 0x88: LDA - Load Intermediate Address
+; opcode 0x88: LDA - Load Intermediate Address (from translation 3d)
 tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41)
 	jzf	L0d3,lrr
 
 	jsr	L030
 	aw	r4,r6
-	dw1	spl,spl		; 061: translation 5d (row 65)
+	dw1	spl,spl		; 061: translation 5d (row 65) - write one word to stack and end instruction
 
 
 ; opcode 0x9b: LAE - Load Address Extended
-L062:	jsr	L0c6
+op_lae:	jsr	L0c6
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
-	dw1	spl,spl		; 066: translation 5d (row 57)
+	dw1	spl,spl		; 066: translation 5d (row 57) - write one word to stack and end instruction
 
 
+; opcode 0xa4: STL - STore Local word (from translation 3b)
 tt_42:	nop	,lrr		; 067: translation 7a subr (row 29)
 	aw	mpl,r6		; [mpl+r7:6] := r3:2
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
+; opcode 0xa5: SRO - Store global word (from translation 3b)
 tt_43:	ll	0x5,r4		; [bp+r7:6] := r3:2
 	lgl	r4,lrr		; 06c: translation 7a subr (row 30)
 	aw	gl,r6
@@ -271,15 +293,19 @@ tt_43:	ll	0x5,r4		; [bp+r7:6] := r3:2
 	ow	r3,r2
 
 
+; opcode 0xa6: STR - SToRe intermediate word (from translation 3b)
 tt_44:	mw	mpl,r4,lrr	; 070: translation 1f subr (row 42)
 	jzf	L0d3,lrr
 	jsr	L030
 	aw	r6,r4
+
+; opcode 0xc4: STO - STOre indirect (from translation 37)
 tt_61:	w	r5,r4,rsvc
 	ow	r3,r2
 
 
-L076:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43)
+; opcode 0xd9: STE - STore word Extended
+op_ste:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43)
 	jsr	L2ba
 	jsr	L030
 	aw	r2,r6
@@ -287,6 +313,7 @@ L076:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43)
 	ow	r5,r4
 
 
+; opcode 0xa7: LDB - Load Byte (from translation 37)
 tt_45:	slbf	r3,r8
 	srwcf	r3,r3
 	aw	r6,r2
@@ -297,6 +324,7 @@ tt_45:	slbf	r3,r8
 	ob	r6,r6
 
 
+; opcode 0xc8: STB - STore Byte (from translation 37)
 tt_65:	riw1	sph,spl
 	iw	0x0,r6
 	slbf	r5,r8
@@ -312,6 +340,8 @@ tt_65:	riw1	sph,spl
 
 	nop
 
+
+; opcode 0xc9: LDP - LoaD a Packed field (from translation 2f)
 tt_66:	mb	r4,r8
 	mbf	r2,r4
 	r	r7,r6
@@ -321,9 +351,10 @@ L094:	srw	r3,r3
 	db1	r4,r4
 	jzbf	L094
 L097:	jsr	L1d7
-	nw	r2,r6		; 098: translation 5d (row 58)
+	nw	r2,r6		; 098: translation 5d (row 58) - write one word to stack and end instruction
 
 
+; opcode 0xca: STP - STore into a Packed field (from translation 37)
 tt_67:	riw1	sph,spl
 	ib	0x1,r8
 	jsr	L1d7
@@ -345,11 +376,13 @@ L0a2:	lgl	r4
 	ow	gh,gl
 
 
-; opcode 0x83: LDC - load multiple word constant
+; opcode 0x83: LDC - load multiple word constant (from translation 3d)
 tt_23:	ll	0x4,r4
 	lgl	r4,lrr		; 0ac: translation 7a subr (row 31)
 	aw	gl,r6
 	mw	r6,r2
+
+; opcode 0xd0: LDM - LoaD Multiple words (from translation 3b)
 tt_73:	jsr	L0c6
 	sw	r6,spl
 	mw	spl,r4
@@ -362,10 +395,10 @@ L0b5:	riw1	r3,r2
 	ow	gh,gl
 	dw1f	r6,r6
 	jzf	L0b5
-L0bb:	nop			; 0bb: translation 3e (row 75)
+L0bb:	nop			; 0bb: translation 3e (row 75) - end of instruction
 
 
-; opcode 0x8e: STM - STore Multiple words
+; opcode 0x8e: STM - STore Multiple words (from translation 3d)
 tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44)
 	aw	r6,spl
 	riw1	sph,spl
@@ -373,12 +406,13 @@ tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44)
 	jmp	L0b2
 
 
+; opcode 0xc5: MOV - MOVe words (from translation 37)
 tt_62:	jsr	L030
 	jmp	L0b2
 
 
 ; opcode 0x92: CPI - Call Procedure Intermediate
-L0c3:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45)
+op_cpi:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45)
 	jzf	L0d3,lrr
 	jmp	L2a2
 
@@ -388,7 +422,7 @@ L0c6:	nop			; 0c3: translation 1f (row 46)
 
 
 ; opcode 0x95: CXI - Call eXternal procedure Intermediate
-L0c7:	jsr	L0c6
+op_cxi:	jsr	L0c6
 	mw	r6,r2
 	mw	mpl,r4,lrr	; 0c9: translation 1f subr (row 47)
 	jzf	L0d3,lrr
@@ -396,7 +430,7 @@ L0c7:	jsr	L0c6
 
 
 ; opcode 0x99: LSL - Load Static Link
-L0cc:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48)
+op_lsl:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48)
 	jzf	L0d3,lrr	; for i := 1 to DB do
 	al	0xfd,r4		; lm := lm^.m.msstat
 	cdb	r5
@@ -416,6 +450,7 @@ L0d5:	r	r5,r4
 	cib	r5		; 0da: translation 6b (row 01)
 
 
+; opcode 0x78..0x7f: SINDi - Short INDex and load word (from translation 3d)
 tt_19:	r	sph,spl
 	iw	0x0,r2
 
@@ -424,19 +459,22 @@ tt_19:	r	sph,spl
 	cib	r3
 
 	r	r3,r2
-	iw	0x0,r6		; 0e1: translation 5d (row 65, 66)
+	iw	0x0,r6		; 0e1: translation 5d (row 65, 66) - write one word to stack and end instruction
 
 
+; opcode 0xe6: IND - INDex and load word (from translation 37)
 tt_89:	mw	r6,r2,lrr	; 0e2: translation 7a subr (row 37)
 	aw	r6,r2
 	r	r3,r2
-	iw	0x0,r6		; 0e5: translation 5d (row 66, 67)
+	iw	0x0,r6		; 0e5: translation 5d (row 66, 67) - write one word to stack and end instruction
 
 
+; opcode 0xe7: INC - INCrement field pointer (from translation 37)
 tt_90:	mw	r6,r2,lrr	; 0e6: translation 7a subr (row 37)
-	aw	r2,r6		; 0e7: translation 5d (row 67)
+	aw	r2,r6		; 0e7: translation 5d (row 67) - write one word to stack and end instruction
 
 
+; opcode 0xd7: IXA: IndeX Array (from translation 3b)
 tt_80:	jzt	L0fd
 	mw	r2,r4,lrr	; 0e9: translation 7a subr (row 32)
 	jsr	L12e
@@ -447,7 +485,8 @@ tt_80:	jzt	L0fd
 	ow	r3,r2
 
 
-L0ef:	jsr	L0c6
+; opcode 0xd8: IXP - IndeX Packed array
+op_ixp:	jsr	L0c6
 	jsr	L14b
 
 	r	sph,spl
@@ -466,41 +505,50 @@ L0fb:	dw1	spl,spl
 
 
 L0fd:	jsr	L030
-	jmp	L245
+	jmp	op_nop
 
 
+; opcode 0xe0: ABI - ABsolute value Integer (from translation 37)
 tt_83:	jnf	L189
 
 
-tt_84:	tcw	r6,r6		; 100: translation 5d (row 68, 69)
+; opcode 0xe1: NGI - NeGate Integer (from translation 37)
+tt_84:	tcw	r6,r6		; 100: translation 5d (row 68, 69) - write one word to stack and end instruction
 
 
-tt_86:	nl	0x7f,r7		; 101: translation 5d (row 68, 69)
+; opcode 0xe3: ABR - ABsolute value Real (from translation 37)
+tt_86:	nl	0x7f,r7		; 101: translation 5d (row 68, 69) - write one word to stack and end instruction
 
 
-tt_87:	al	0x80,r7		; 102: translation 5d (row 68)
+; opcode 0xe4: NGR - NeGate Real (from translation 37)
+tt_87:	al	0x80,r7		; 102: translation 5d (row 68) - write one word to stack and end instruction
 
 
-tt_39:	nw	r2,r6		; 103: translation 5d (row 68)
+; opcode 0xa1: LAND - Logical AND (from translation 37)
+tt_39:	nw	r2,r6		; 103: translation 5d (row 68) - write one word to stack and end instruction
 
 
-tt_38:	orw	r2,r6		; 104: translation 5d (row 69)
+; opcode 0xa0: LOR - Logical OR (from translation 37)
+tt_38:	orw	r2,r6		; 104: translation 5d (row 69) - write one word to stack and end instruction
 
 
-tt_88:	ocw	r6,r6		; 105: translation 5d (row 69)
+; opcode 0xe5: LNOT - Logical NOT (from translation 37)
+tt_88:	ocw	r6,r6		; 105: translation 5d (row 69) - write one word to stack and end instruction
 
 
+; opcode 0xa2: ADI - ADd Integer (from translation 37)
 tt_40:	awf	r6,r2
 L107:	w	sph,spl,rsvc
 	ow	r3,r2
 
 
+; opcode 0xa3: SBI - SuBtract Integer (from translation 37)
 tt_41:	swf	r2,r6
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 
-; opcode 0x8c: MPI: MultiPly integers
+; opcode 0x8c: MPI - MultiPly integers (from translation 3d)
 tt_32:	riw1	sph,spl
 	iwf	0x0,r6
 	jzt	L164
@@ -524,18 +572,18 @@ L11d:	w	sph,spl,rsvc
 	ow	r5,r4
 
 
-; opcode 0x8d: DVI - DiVide Integers
+; opcode 0x8d: DVI - DiVide Integers (from translation 3d)
 tt_33:	jsr	L13e
 	jmp	L11b
 
 
-; opcode 0x8f: MODI - MODulo Integers
+; opcode 0x8f: MODI - MODulo Integers (from translation 3d)
 tt_35:	jsr	L14f
 	jcf	L11d
 	jmp	L166
 
 
-; possibly opcode 0xcb - CHK - CHecK against subrange bounds
+; opcode 0xcb: CHK - CHecK against subrange bounds (from translation 2f)
 tt_68:	cwf	r6,r2
 	jvf	L127
 	mbf	r3,r3
@@ -619,10 +667,16 @@ L15a:	slwc	r4,r4
 	icw1	r6,r6		; 160: translation 6b (row 03)
 
 
+; from translation 73, unconditional
 tt_15:	r	r7,r6
 	iw	0x0,r6
+
+; opcode 0xe2: DUP1 - DUPlicate 1 word of stack (from translation 37)
 tt_85:
 L163:	dw1	spl,spl
+
+; write one word result to stack and end instruction
+; translation 5d (row 97) jumps here
 tt_97:
 L164:	w	sph,spl,rsvc
 	ow	r7,r6
@@ -637,6 +691,7 @@ divide_by_zero:
 	jmp	raise_exception
 
 
+; opcode 0xc7: ADJ - ADJust set (from translation 3b)
 tt_64:	mw	spl,r4
 	aw	r2,spl,lrr	; 16b: translation 1f subr (row 50)
 	cwf	r2,r6
@@ -650,7 +705,7 @@ L16f:	dw1	r4,r4
 	ow	r3,r2
 	dw1	r6,r6
 	jzbf	L16f
-	jmp	L245
+	jmp	op_nop
 
 
 L178:	sw	r6,spl
@@ -670,7 +725,7 @@ L185:	wiw1	r3,r2
 	ow	r7,r7
 	db1	r6,r6
 	jzbf	L185
-L189:	jmp	L245
+L189:	jmp	op_nop
 
 
 ; opcode 0xbc: SRS  - build SubRange Set
@@ -760,7 +815,8 @@ L1bd:	r	sph,spl
 	rfs
 
 
-L1c2:	mw	spl,r4
+; opcode 0xda: INN - set membership
+op_inn:	mw	spl,r4
 	aw	r2,spl
 	r	sph,spl
 	iw	0x0,r2
@@ -774,7 +830,7 @@ L1c2:	mw	spl,r4
 L1cd:	srwf	r3,r3
 	db1	r6,r6
 	jzbf	L1cd
-L1d0:	slbc	r7,r6		; 1d0: translation 5d (row 59)
+L1d0:	slbc	r7,r6		; 1d0: translation 5d (row 59) - write one word to stack and end instruction
 
 
 L1d1:	ll	0xf,r6
@@ -796,7 +852,8 @@ L1dc:	slwc	r6,r6
 L1df:	rfs
 
 
-L1e0:	jzt	L189
+; opcode 0xdb: UNI - set UNIon
+op_uni:	jzt	L189
 	mw	r2,r6
 	lgl	r3
 	aw	spl,r2
@@ -816,7 +873,7 @@ L1e9:	riw1	sph,spl
 
 	db1f	r6,r6
 	jzf	L1e9
-	jmp	L245
+	jmp	op_nop
 	
 L1f2:	mb	r8,r7
 L1f3:	riw1	r3,r2
@@ -837,7 +894,8 @@ L1fb:	mw	r6,r4
 	jmp	L16f
 
 
-L201:	jzf	L206
+; opcode 0xdc: INT - set INTersection
+op_int:	jzf	L206
 	r	sph,spl
 	iw	0x0,r4
 	aw	r4,spl
@@ -856,7 +914,7 @@ L206:	jsr	L21c
 
 L210:	sb	r7,r6
 	jsr	L213
-	aw	r6,spl		; 212: translation 3e (row 76)
+	aw	r6,spl		; 212: translation 3e (row 76) - end of instruction
 
 
 L213:	riw1	sph,spl
@@ -888,10 +946,11 @@ L222:	wiw1	sph,spl
 	rfs
 
 
-L229:	jzt	L245
+; opcode 0xdd: DIF - set DIFference
+op_dif:	jzt	op_nop
 	jsr	L21c
 	jzf	L22d
-L22c:	dw1	r2,spl		; 22c: translation 3e (row 77)
+L22c:	dw1	r2,spl		; 22c: translation 3e (row 77) - end of instruction
 
 L22d:	cb	r6,r7
 	jc8f	L230
@@ -907,14 +966,15 @@ L231:	riw1	sph,spl
 
 	db1f	r7,r7
 	jzf	L231
-	aw	r6,spl		; 239: translation 3e (row 78)
+	aw	r6,spl		; 239: translation 3e (row 78) - end of instruction
 
 
+; opcode 0xd4: FJP - False JumP (from translation 3b)
 tt_77:	tl	0x1,r2
 	jzbf	L296
 
 
-; opcode 0x8a: UJP - Unconditional JumP
+; opcode 0x8a: UJP - Unconditional JumP (from translation 3d)
 tt_30:
 L23c:	ll	0xff,r3,lrr	; 23c: translation 1f subr (row 51)
 	slbf	r6,r2
@@ -923,37 +983,41 @@ L23f:	dw1	ipcl,r2
 	icw2	r6,ipcl,lrr	; 240: translation 75 subr (row 81)
 	srwcf	ipch,ipch
 L242:	awc	r2,ipcl,lrr	; 242: translation 6e subr (row 15)
-	jcf	L245
+	jcf	op_nop
 	dw1	ipcl,r8		; 244: translation 79 (row 84)
 
 
+tt_10:	; from translation 79
+tt_11:	; from translation 79
 ; opcode 0x9c: NOP - No OPeration
-tt_10:
-tt_11:
-L245:	nop			; 245: translation 3e (row 79)
+op_nop:	nop			; 245: translation 3e (row 79) - end of instruction
 
 
+; opcode 0xd2: EFJ - Equal False Jump (from translation 37)
 tt_75:	xwf	r2,r4
 	jzf	L23c
 	jmp	L296
 
 
+; opcode 0xd3: NFJ - Not equal False Jump (from translation 37)
 tt_76:	xwf	r2,r4
 	jzt	L23c
 	jmp	L296
 
 
-; opcode 0x8b: UJPL - Unconditional JumP Long
+; opcode 0x8b: UJPL - Unconditional JumP Long (from translation 3d)
 tt_31:	nop	,lrr		; 24c: translation 76 subr (row 54)
 	jmp	L250
 
 
+; opcode 0xd5: FJPL - False JumP Long (from translation 3b)
 tt_78:	srbf	r2,r2,lrr	; 24e: translation 76 subr (row 54)
-	jct	L245
+	jct	op_nop
 L250:	slbf	r7,r3
 	jmp	L23f
 
 
+; opcode 0xd6: XJP - case JumP (from translation 3b)
 tt_79:	ll	0x4,r4
 	lgl	r4,lrr		; 253: translation 7a subr (row 36)
 	aw	gl,r6
@@ -1013,7 +1077,7 @@ L257:	r	gh,gl
 
 
 ; opcode 0x97: CPF - Call Procedure Formal
-L27d:	riw1	sph,spl
+op_cpf:	riw1	sph,spl
 	iw	0x0,r8
 
 	ll	0x0,r4
@@ -1034,12 +1098,12 @@ L27d:	riw1	sph,spl
 
 
 ; opcode 0x90: CPL - Call Local Procedure
-L288:	ll	0x7,r4
+op_cpl:	ll	0x7,r4
 	jmp	L28b
 
 
 ; opcode 0x91: CPG - Call Global Procedure
-L28a:	ll	0x5,r4
+op_cpg:	ll	0x5,r4
 L28b:	jsr	L0c6
 	ll	0x4,r8
 	lgl	r8
@@ -1049,13 +1113,13 @@ L28b:	jsr	L0c6
 
 
 ; opcode 0x93: CXL - Call eXternal procedure Local
-L291:	ll	0x7,r4
+op_cxl:	ll	0x7,r4
 	jsr	L0c6
 	jmp	L29c
 
 
 ; opcode 0x94: CXG - Call eXternal procedure Global
-L294:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52)
+op_cxg:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52)
 	jmp	L29c
 
 
@@ -1124,7 +1188,7 @@ L2c5:	jmp	L590
 
 
 ; opcode 0x96: RPU - Return from Procedure User
-L2c6:	dw1	mpl,mpl		; sp := mp (adjusted)
+op_rpu:	dw1	mpl,mpl		; sp := mp (adjusted)
 	dw1	mpl,spl
 
 	riw1	sph,spl		; mp := lm^.m.msdyn1
@@ -1166,28 +1230,30 @@ op_bpt:	ll	0xe,r6		; raise exception 14 - halt or breakpoint
 	jmp	raise_exception
 
 
+; opcode 0xc6: DUP2 - DUPlicate 2 words of stack (from translation 37)
 tt_63:	al	0xfd,spl
 	cdb	sph
 	mw	r2,r6
 	mw	r4,r2
 
 
-; opcode 0xbd - SWAP - SWAP top of stack with next of stack
-L2e6:	w	sph,spl
+; opcode 0xbd: SWAP - SWAP top of stack with next of stack
+op_swap:
+	w	sph,spl
 	ow	r3,r2
-	dw1	spl,spl		; 2e8: translation 5d (row 60)
+	dw1	spl,spl		; 2e8: translation 5d (row 60) - write one word to stack and end instruction
 
 
 L2e9:	riw1	r7,r6
 	iw	0x0,r4
 	swf	r4,r2
-	jnt	L245
+	jnt	op_nop
 	lgl	r8
 	riw1	r7,r6
 	iw	0x0,gl
 	sw	r4,gl
 	cwf	r2,gl
-	jct	L245
+	jct	op_nop
 	aw	r2,r6
 	r	r7,r6
 	iw	0x0,r6
@@ -1200,26 +1266,35 @@ L2e9:	riw1	r7,r6
 	nop			; 2fa: translation 5e (row 85) ?
 
 
+; from translation 75, TSR = X1, loads TSR := 2
 tt_12:	al	0xff,ipcl
 	cdb	ipch		; 2fc: translation 6b (row 13)
 
 
-tt_08:
-tt_09:
-tt_13:	nop
+
+tt_08:	; from translation 5e, unconditional, loads TSR := 1
+tt_09:	; from translation 6e, unconditional, loads TSR := 2
+tt_13:	; from translation 75, TSR = X0, loads TSR := 2
+	nop
 	nop			; 2fe: translation 6b (row 13)
 
 
+; opcode 0xc1: SBR - SuBtract Real (from translation 2f)
 tt_58:	al	0x80,r3
+
+; opcode 0xc0: ADR - ADd Real (from translation 2f)
 tt_57:	jmp	L32f
 
 
+; opcode 0xc3: DVR - DiVide Real (from translation 37)
 tt_60:	jmp	L39a
 
 
+; opcode 0xc2: MPR - MultiPly Real (from translation 2f)
 tt_59:	jmp	L37d
 
 
+; opcode 0xcc: FLT - FLoaT top of stack (from translation 3b)
 tt_69:	mwf	r2,r6
 	jzt	L313
 	ll	0x8e,r3
@@ -1240,9 +1315,11 @@ L313:	dw1	spl,spl
 	jmp	L3f6
 
 
-; opcode 0xbe - TNC - TruNCate real
-; opcode 0xbf - RND - RouND real
-L315:	slwf	r2,r2
+; opcode 0xbe: TNC - TruNCate real
+op_tnc:
+; opcode 0xbf: RND - RouND real
+op_rnd:
+	slwf	r2,r2
 	jzt	L32e
 	mb	r7,r6
 	srb	r2,r7
@@ -1505,14 +1582,14 @@ floating_point_error:
 	jmp	raise_exception
 
 
-; dispatch opcodes 0x90..0x9f
+; dispatch opcodes 0x90..0x9f (from translation 3d)
 tt_36:	ll	0x0,r7
 	nl	0xf,r6
 	mi	r7,r6
 	jmp	L410
 
 
-; dispatch opcodes 0xb8..0xbf
+; dispatch opcodes 0xb8..0xbf (from translation 3b)
 tt_55:	mb	r6,r4
 	r	sph,spl
 	iw	0x0,r6
@@ -1522,6 +1599,7 @@ tt_55:	mb	r6,r4
 	jmp	L420
 
 
+; dispatch opcodes 0xd8..0xdf (from translation 3b)
 tt_81:	ll	0x0,r7
 	nl	0x7,r6
 	mi	r7,r6
@@ -1529,77 +1607,86 @@ tt_81:	ll	0x0,r7
 
 
 ; jump table for opcodes 0x90..0x9f
-L410:	jmp	L288	; 0x90 CPL  - Call Procedure Local
-	jmp	L28a	; 0x91 CPG  - Call Procedure Global
-	jmp	L0c3	; 0x92 CPI  - Call Procedure Intermediate
-	jmp	L291	; 0x93 CXL  - Call eXternal procedure Local
-	jmp	L294	; 0x94 CXG  - Call eXternal procedure Global
-	jmp	L0c7	; 0x95 CXI  - Call eXternal procedure Intermediate
-	jmp	L2c6	; 0x96 RPU  - Return From Procedure User
-	jmp	L27d	; 0x97 CPF  - Call Procedure Formal
-	jmp	L03a	; 0x98 LDCN - LoaD Constant Nil
-	jmp	L0cc	; 0x99 LSL  - Load Static Link
-	jmp	L04e	; 0x9a LDE  - LoaD word Extended
-	jmp	L062	; 0x9b LAE  - Load Address Extended
-	jmp	L245	; 0x9c NOP  - No OPeration
-	jmp	L4f0	; 0x9d LPR  - Load Processor Register
-	jmp	op_bpt	; 0x9e BPT  - Break PoinT
-	jmp	L550	; 0x9f BNOT - Boolean NOT (was RBP in early releases)
+L410:	jmp	op_cpl		; 0x90 CPL  - Call Procedure Local
+	jmp	op_cpg		; 0x91 CPG  - Call Procedure Global
+	jmp	op_cpi		; 0x92 CPI  - Call Procedure Intermediate
+	jmp	op_cxl		; 0x93 CXL  - Call eXternal procedure Local
+	jmp	op_cxg		; 0x94 CXG  - Call eXternal procedure Global
+	jmp	op_cxi		; 0x95 CXI  - Call eXternal procedure Intermediate
+	jmp	op_rpu		; 0x96 RPU  - Return From Procedure User
+	jmp	op_cpf		; 0x97 CPF  - Call Procedure Formal
+	jmp	op_ldcn		; 0x98 LDCN - LoaD Constant Nil
+	jmp	op_lsl		; 0x99 LSL  - Load Static Link
+	jmp	op_lde		; 0x9a LDE  - LoaD word Extended
+	jmp	op_lae		; 0x9b LAE  - Load Address Extended
+	jmp	op_nop		; 0x9c NOP  - No OPeration
+	jmp	op_lpr		; 0x9d LPR  - Load Processor Register
+	jmp	op_bpt		; 0x9e BPT  - Break PoinT
+	jmp	op_bnot		; 0x9f BNOT - Boolean NOT (was RBP in early releases)
 
 
 ; jump table for opcodes 0xb8..0xbf
-L420:	jmp	L489	; 0xb8 
-	jmp	L497
-	jmp	L49a
-	jmp	L49f
-	jmp	op_srs	; 0xbc SRS  - build SubRange Set
-	jmp	L2e6	; 0xbd - SWAP - SWAP top of stack with next of stack
-	jmp	L315	; 0xbe - TNC - TruNCate real
-	jmp	L315	; 0xbf - RND - RouND real
+L420:	jmp	op_geqpwr	; 0xb8: GEQPWR - set compare >= (supserset of)
+	jmp	op_equbyt	; 0xb9: EQUBYT - equal byte array compare
+	jmp	op_leqbyt	; 0xba: LEQBYT - less or equal byte array compare
+	jmp	op_geqbyt	; 0xbb: GEQBYT: greater or equal byte array compare
+	jmp	op_srs		; 0xbc: SRS  - build SubRange Set
+	jmp	op_swap		; 0xbd: SWAP - SWAP top of stack with next of stack
+	jmp	op_tnc		; 0xbe: TNC - TruNCate real
+	jmp	op_rnd		; 0xbf: RND - RouND real
 
 
-L428:	jmp	L0ef
-	jmp	L076
-	jmp	L1c2
-	jmp	L1e0
-	jmp	L201
-	jmp	L229
-	jmp	L510
-	jmp	L538
+; jump table for opcodes 0xd8..0xdf
+L428:	jmp	op_ixp		; 0xd8 IXP - IndeX Packed array
+	jmp	op_ste		; 0xd9 STE - STore word Extended
+	jmp	op_inn		; 0xda INN - set membership
+	jmp	op_uni		; 0xdb UNI - set UNIon
+	jmp	op_int		; 0xdc INT - set INTersection
+	jmp	op_dif		; 0xdd DIF - set DIFference
+	jmp	op_signal	; 0xde SIGNAL - SIGNAL semaphore
+	jmp	op_wait		; 0xdf WAIT - WAIT on semaphore
 
 
+; opcode 0xb0: EQUI - EQUal Integer (from translation 37)
 tt_46:	swf	r2,r6
 L431:	jzt	L4c3
 	jmp	L4bd
 
 
+; opcode 0xb1: NEQI - Not EQual Integer (from translation 37)
 tt_47:	swf	r2,r6
 	jzf	L4c3
 	jmp	L4bd
 
 
+; opcode 0xb2: LEQI - Less than or EQual Integer (from translation 37)
 tt_48:	cwf	r6,r2
 	jvf	L447
 	jmp	L446
 
 
+; opcode 0xb3: GEQI - Greater than or EQual Integer (from translation 37)
 tt_49:	cwf	r2,r6
 	jvf	L447
 	jmp	L449
 
 
+; opcode 0xcd: EQUREAL - EQUal REAL (from translation 37)
 tt_70:	jsr	L44c
 	jmp	L4bd
 
 
 	nop
 
+
+; opcode 0xce: LEQREAL - Less than or EQual REAL (from translation 37)
 tt_71:	jsr	L44c
 	jnbt	L446
 	jct	L446
 	jmp	L449
 
 
+; opcode 0xcf: GEQREAL - Greater than or EQual REAL (from translation 37)
 tt_72:	jsr	L44c
 	jnbt	L449
 	jct	L449
@@ -1624,16 +1711,19 @@ L455:	xb	r3,r8
 	rfs
 
 
+; opcode 0xb4: LEUSW - Less than or Equal UnSigned Word (from translation 37)
 tt_50:	cwf	r6,r2
 	jcf	L4c3
 	jmp	L4bd
 
 
+; opcode 0xb5: GEUSW - Greater than or Equal UnSigned Word (from translation 37)
 tt_51:	cwf	r2,r6
 	jcf	L4c3
 	jmp	L4bd
 
 
+; opcode 0xb6: EQUPWR - set compare EQUal (from translation 3b)
 tt_52:	jsr	L473
 	cw	r4,gl
 	jzbf	L4b6
@@ -1644,6 +1734,7 @@ tt_52:	jsr	L473
 	jmp	L46c
 
 
+; opcode 0xb7: LEQPWR - set compare Less than or EQual (from translation 3b)
 tt_53:	jsr	L473
 	orw	r4,gl
 	cw	gl,r4
@@ -1684,7 +1775,9 @@ L484:	riw1	r3,r2
 	db1f	r8,r8		; 488: translation 6b (row 07)
 
 
-L489:	jsr	L473
+; opcode 0xb8: GEQPWR - set compare >= (supserset of)
+op_geqpwr:
+	jsr	L473
 	orw	gl,r4
 	cw	r4,gl
 	jc8f	L4b6
@@ -1700,12 +1793,16 @@ L491:	riw1	r3,r2
 	jmp	L4c2
 
 
-L497:	mw	r6,r4,lrr	; 497: translation 7a subr (row 38)
+; opcode 0xb9: EQUBYT - equal byte array compare
+op_equbyt:
+	mw	r6,r4,lrr	; 497: translation 7a subr (row 38)
 	jsr	L4a4
 	jmp	L431
 
 
-L49a:	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34)
+; opcode 0xba: LEQBYT - less or equal byte array compare
+op_leqbyt:
+	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34)
 	jsr	L4a4
 	jcf	L4c3
 	jmp	L4bd
@@ -1714,7 +1811,9 @@ L49a:	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34)
 	nop
 
 
-L49f:	mw	r6,r4,lrr	; 49f: translation 7a subr (row 38)
+; opcode 0xbb: GEQBYT: greater or equal byte array compare
+op_geqbyt:
+	mw	r6,r4,lrr	; 49f: translation 7a subr (row 38)
 	jsr	L4a4
 	jzt	L4c3
 	jct	L4c3
@@ -1749,7 +1848,7 @@ L4ba:	ab	r8,spl
 	cib	sph
 L4bc:	dw1	spl,spl
 L4bd:	ll	0x0,r6
-	ll	0x0,r7		; 4be: translation 5d (row 61)
+	ll	0x0,r7		; 4be: translation 5d (row 61) - write one word to stack and end instruction
 
 
 L4bf:	sb	r6,r7
@@ -1757,7 +1856,7 @@ L4bf:	sb	r6,r7
 	cib	sph
 L4c2:	dw1	spl,spl
 L4c3:	ll	0x1,r6
-	ll	0x0,r7		; 4c4: translation 5d (row 62)
+	ll	0x0,r7		; 4c4: translation 5d (row 62) - write one word to stack and end instruction
 
 
 L4c5:	ll	0x1,r8
@@ -1791,14 +1890,13 @@ L4d1:	r	mph,mpl
 	cw	r6,r8
 	jc8f	L4ce
 
-
-; possibly opcode 0xd1 SPR - Store Processor Register
 L4dd:	dw1	ipcl,spl
 	jsr	L2b8
 	mw	r2,gl
 	jmp	L55b		; 4e0: translation 5d (row 63) - OVERRIDDEN BY JMP
 
 
+; opcode 0xd1: SPR - Store Processor Register (from translation 37)
 tt_74:	icb1f	r4,r8
 	jnf	L4e6
 
@@ -1822,7 +1920,7 @@ L4ec:	aw	gl,r4
 
 
 ; opcode 0x9d: LPR - Load Processor Register
-L4f0:	r	sph,spl		; r5:4 = [sp]
+op_lpr:	r	sph,spl		; r5:4 = [sp]
 	iwf	0x0,r4
 
 	jnf	L4f7		; jump if positive
@@ -1849,25 +1947,25 @@ L4f7:	jsr	updatetib
 	jmp	L5d6
 
 
-; int 3
+; interrupt 3 (highest priority), from end of instruction (translation 3e)
 tt_03:	ll	0x8,r2
 	jmp	L507
 
-; int 2
+; interrupt 2, from end of instruction (translation 3e)
 tt_02:	ll	0x4,r2
 	jmp	L507
 
-; int 1
+; interrupt 1, from end of instruction (translation 3e)
 tt_01:	ll	0x2,r2
 	jmp	L507
 
-; int 0
+; interrupt 0 (lowest priority), from end of instruction (translation 3e)
 tt_00:	ll	0x1,r2		; r2 := 1
 
 L507:	ll	0xfc,r5		; r5:4 := 0xfc40
 	ll	0x40,r4
 	w	r5,r4		; [0xfc40] := interrupt bit to clear
-	ob	r2,r2
+	ob	r2,r2		; clear the bit which was set in r2
 
 	ll	0x60,r4		; r5:4 := 0xfc60
 
@@ -1877,7 +1975,9 @@ L507:	ll	0xfc,r5		; r5:4 := 0xfc40
 	r	r7,r6		; r3:2 := [r7:6]
 	iw	0x0,r2
 
-L510:	riw1	r3,r2		; r5:4 := [r3:2++]
+; opcode 0xde: SIGNAL - SIGNAL semaphore
+op_signal:
+	riw1	r3,r2		; r5:4 := [r3:2++]
 	iwf	0x0,r4
 
 	jzt	L51c
@@ -1891,7 +1991,7 @@ L513:	icw1	r4,r4
 	lgl	r2
 	cl	0xfc,gh
 	jzbt	L587
-L51b:	jmp	L245
+L51b:	jmp	op_nop
 
 L51c:	r	r3,r2
 	iw	0x0,r6
@@ -1923,7 +2023,9 @@ L51c:	r	r3,r2
 	jmp	L587
 
 
-L538:	riw1	r3,r2		; r5:4 := [r3:2]
+; opcode 0xdf: WAIT - WAIT on semaphore
+op_wait:
+	riw1	r3,r2		; r5:4 := [r3:2]
 	iwf	0x0,r4
 	jzt	L53f
 	dw1	r4,r4		; r5:4 -= 1
@@ -1957,7 +2059,8 @@ L53f:	r	r3,r2		; r5:4 := [r3:2]
 
 
 ; opcode 0x9f: BNOT - Boolean NOT (was RBP in early releases)
-L550:	r	sph,spl		; r6 := [sp], lower byte, RMW
+op_bnot:
+	r	sph,spl		; r6 := [sp], lower byte, RMW
 	ib	0x5,r6
 
 	ocb	r6,r6		; r6 ^= 0xff
@@ -2049,9 +2152,14 @@ L587:	ll	0x3,r9		; g := rq
 	mw	gl,r2
 	jmp	L5d1
 
+
+; no task on ready queue, wait for interrupt
+; from translation 6d
+; sits in a loop constantly doing translation 6d, until an interrupt occurs
+; (when interrupt reg = 0XX0000)
 tt_07:
-L58e:	lgl	r2		; rq := r7:6	; 58e: translation 6d (row 86) ?
-	mw	r6,gl		; 58f: translation 3e (row 80)
+L58e:	lgl	r2		; rq := r7:6	; 58e: translation 6d (row 86)
+	mw	r6,gl		; 58f: translation 3e (row 80) - end of instruction
 
 
 L590:	r	r7,r6		; r3:2 := [r7:6]
