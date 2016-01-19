@@ -49,6 +49,8 @@
 ;                   LPR/SPR
 ; direct  indirect  reg#     name        description
 ; ------  --------  -------  ----------  --------------------------------
+; r7:6	  	    	     		 operand
+; r8:9                                   current word of program
 ; rb:a               7       PC (IPC)    instruction program counter
 ; rd:c    g=6        4       SP          stack pointer
 ; rf:e    g=7        5       MP          mark stack pointer
@@ -70,7 +72,7 @@
 
 
 ; from translation 1f, if TSR = X0, and loads TSR := 0
-; get UB/SB/DB operand (byte)
+; get UB/SB/DB parameter (byte) into r6
 tt_95:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
@@ -79,13 +81,13 @@ tt_95:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 
 
 ; from translation 1f, if TSR = X1, and loads TSR := 2
-; get UB/SB/DB operand (byte)
+; get UB/SB/DB parameter (byte) into r6
 tt_96:	mbf	r9,r6
 L007:	ll	0x0,r7		; 007: translation 6b (row 11): return
 
 
 ; from translation 7a, if TSR = X0, and loads TSR := 0
-; get B ("big") operand
+; get B ("big") parameter into r7:6
 tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 	iw	0x3,r8
 
@@ -98,7 +100,7 @@ tt_93:	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
 
 
 ; from translation 7a, if TSR = X1, and loads TSR := 2
-; get B ("big") operand
+; get B ("big") parameter into r7:6
 tt_94:	mbf	r9,r6
 	jnf	L007
 
@@ -133,13 +135,13 @@ tt_05:	mb	r9,r6,,1	; 01d: translation 3d (row 19)
 
 
 ; from translation 76, if TSR = X0, and loads TSR := 2
-; get W (word) operand
+; get W (word) parameter
 tt_91:	riw1	ipch,ipcl	; r7:6 := [ipc++]
 	iw	0x0,r6		; 020: translation 6b (row 12): return
 
 
 ; from translation 76, if TSR = X1, and loads TSR := 0
-; get W (word) operand
+; get W (word) parameter
 tt_92:	mb	r9,r6
 
 	riw1	ipch,ipcl	; r9:8, tr := [ipc++]; load ics
@@ -151,15 +153,18 @@ tt_92:	mb	r9,r6
 ; opcode 0xc0..0xdf (from translation 3d)
 tt_56:	riw1	sph,spl		; r3:2 := [sp++]
 	iwf	0x0,r2		; 026: translation 3b (row 20)
+				; handles opcodes c7, cc, d0, d4..df
 
 
 	riw1	sph,spl		; r5:4 := [sp++]
 	iwf	0x0,r4		; 028: translation 37 (row 22)
+				; handles opcodes c3..c6, c8, ca, cd..cf,
+				; d1..d3
 
 
 	r	sph,spl		; r7:6 := [sp]
 	iwf	0x0,r6		; 02a: translation 2f (row 24)
-
+				; handles opcodes c0..c2, c9, cb
 
 
 tt_37:	; opcode 0xa0..0xa7, 0xb0..0xb7 (from translation 3d)
@@ -176,11 +181,12 @@ tt_82:	r	sph,spl		; r7:6 := [sp]
 	nop
 
 
-; get a B ("big") operand
+; get a B ("big") parameter
 ;   one inline byte, 0x00-0x7f
 ;   two inline bytes, first is 0x80-0xff for most significant byte (clear 0x80 bit)
 ;                     second is 0x00-0xff for least significant byte
-get_operand_b:	nop			; 030: translation 7a (row 26): get B operand
+get_parameter_b:
+	nop			; 030: translation 7a (row 26): get B parameter
 
 
 
@@ -192,13 +198,13 @@ L031:	dw1	spl,spl
 
 	
 ; opcode 0x80: LDCB - LoaD Constant Byte (from translation 3d)
-tt_20:	dw1	spl,spl,lrr	; 034: translation 1f subr (row 39): get UB operand
+tt_20:	dw1	spl,spl,lrr	; 034: translation 1f subr (row 39): get UB parameter
 	w	sph,spl,rsvc
 	ow	r7,r6
 
 	
 ; opcode 0x81: LDCI - LoaD Constant Immediate (from translation 3d)
-tt_21:	dw1	spl,spl,lrr	; 037: translation 76 subr (row 53): get W operand
+tt_21:	dw1	spl,spl,lrr	; 037: translation 76 subr (row 53): get W parameter
 	w	sph,spl,rsvc
 	ow	r7,r6
 
@@ -219,7 +225,7 @@ tt_17:	ll	0x0,r7
 
 
 ; opcode 0x87: LDL - Load Local Word (from translation 3d)
-tt_27:	nop	,lrr		; 040: translation 7a subr (row 35): get B operand
+tt_27:	nop	,lrr		; 040: translation 7a subr (row 35): get B parameter
 	aw	mpl,r6		; 041: translation 73 (row 72, 73)
 
 
@@ -233,63 +239,63 @@ tt_18:	ll	0x0,r7
 
 ; opcode 0x85: LDO - Load Global Word (from translation 3d)
 tt_25:	ll	0x5,r4
-	lgl	r4,lrr		; 048: translation 7a subr (row 35): get B operand
+	lgl	r4,lrr		; 048: translation 7a subr (row 35): get B parameter
 	aw	gl,r6		; 049: translation 73 (row 72, 74)
 
 
 ; opcode 0x89: LOD - LOaD intermediate word (from translation 3d)
-tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40): get DB operand
+tt_29:	mw	mpl,r4,lrr	; 04a: translation 1f subr (row 40): get DB parameter
 	jzf	L0d3,lrr
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r4,r6		; 04d: translation 73 (row 74)
 
 
 ; opcode 0x9a: LDE - LoaD word Extended
-op_lde:	jsr	get_operand_ub_sb_db
+op_lde:	jsr	get_parameter_ub_sb_db
 	jsr	L2ba
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r2,r6		; 051: translation 73 (row 73)
 
 
 ; opcode 0x82: LCA - Load Constant Address (from translation 3d)
 tt_22:	ll	0x4,r4
-	lgl	r4,lrr		; 053: translation 7a subr (row 36): get B operand
+	lgl	r4,lrr		; 053: translation 7a subr (row 36): get B parameter
 	aw	gl,r6
 	dw1	spl,spl		; 055: translation 5d (row 56) - write one word to stack and end instruction
 
 
 ; opcode 0x84: LLA - Load Local Address (from translation 3d)
-tt_24:	nop	,lrr		; 056: translation 7a subr (row 27): get B operand
+tt_24:	nop	,lrr		; 056: translation 7a subr (row 27): get B parameter
 	aw	mpl,r6
 	dw1	spl,spl		; 058: translation 5d (row 64) - write one word to stack and end instruction
 
 
 ; opcode 0x86: LAO - Load Global Address (from translation 3d)
 tt_26:	ll	0x5,r4
-	lgl	r4,lrr		; 05a: translation 7a subr (row 28): get B operand
+	lgl	r4,lrr		; 05a: translation 7a subr (row 28): get B parameter
 	aw	gl,r6
 	dw1	spl,spl		; 05c: translation 5d (row 64) - write one word to stack and end instruction
 
 
 ; opcode 0x88: LDA - Load Intermediate Address (from translation 3d)
-tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41): get DB operand
+tt_28:	mw	mpl,r4,lrr	; 05d: translation 1f subr (row 41): get DB parameter
 	jzf	L0d3,lrr
 
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r4,r6
 	dw1	spl,spl		; 061: translation 5d (row 65) - write one word to stack and end instruction
 
 
 ; opcode 0x9b: LAE - Load Address Extended
-op_lae:	jsr	get_operand_ub_sb_db
+op_lae:	jsr	get_parameter_ub_sb_db
 	jsr	L2ba
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r2,r6
 	dw1	spl,spl		; 066: translation 5d (row 57) - write one word to stack and end instruction
 
 
 ; opcode 0xa4: STL - STore Local word (from translation 3b)
-tt_42:	nop	,lrr		; 067: translation 7a subr (row 29): get B operand
+tt_42:	nop	,lrr		; 067: translation 7a subr (row 29): get B parameter
 	aw	mpl,r6		; [mpl+r7:6] := r3:2
 	w	r7,r6,rsvc
 	ow	r3,r2
@@ -297,27 +303,29 @@ tt_42:	nop	,lrr		; 067: translation 7a subr (row 29): get B operand
 
 ; opcode 0xa5: SRO - Store global word (from translation 3b)
 tt_43:	ll	0x5,r4		; [bp+r7:6] := r3:2
-	lgl	r4,lrr		; 06c: translation 7a subr (row 30): get B operand
+	lgl	r4,lrr		; 06c: translation 7a subr (row 30): get B parameter
 	aw	gl,r6
 	w	r7,r6,rsvc
 	ow	r3,r2
 
 
 ; opcode 0xa6: STR - SToRe intermediate word (from translation 3b)
-tt_44:	mw	mpl,r4,lrr	; 070: translation 1f subr (row 42): get DB operand
+tt_44:	mw	mpl,r4,lrr	; 070: translation 1f subr (row 42): get DB parameter
 	jzf	L0d3,lrr
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r6,r4
 
 ; opcode 0xc4: STO - STOre indirect (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_61:	w	r5,r4,rsvc
 	ow	r3,r2
 
 
 ; opcode 0xd9: STE - STore word Extended
-op_ste:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43): get UB operand
+; after having popped one word from stack into r3:2
+op_ste:	mw	r2,r4,lrr	; 076: translation 1f subr (row 43): get UB parameter
 	jsr	L2ba
-	jsr	get_operand_b
+	jsr	get_parameter_b
 	aw	r2,r6
 	w	r7,r6,rsvc
 	ow	r5,r4
@@ -335,6 +343,7 @@ tt_45:	slbf	r3,r8
 
 
 ; opcode 0xc8: STB - STore Byte (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_65:	riw1	sph,spl
 	iw	0x0,r6
 	slbf	r5,r8
@@ -352,6 +361,8 @@ tt_65:	riw1	sph,spl
 
 
 ; opcode 0xc9: LDP - LoaD a Packed field (from translation 2f)
+; after having popped two words from stack into r3:2 and r5:4
+; and read but not popped a third word into r7:6
 tt_66:	mb	r4,r8
 	mbf	r2,r4
 	r	r7,r6
@@ -365,6 +376,7 @@ L097:	jsr	L1d7
 
 
 ; opcode 0xca: STP - STore into a Packed field (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_67:	riw1	sph,spl
 	ib	0x1,r8
 	jsr	L1d7
@@ -388,12 +400,13 @@ L0a2:	lgl	r4
 
 ; opcode 0x83: LDC - load multiple word constant (from translation 3d)
 tt_23:	ll	0x4,r4
-	lgl	r4,lrr		; 0ac: translation 7a subr (row 31): get B operand
+	lgl	r4,lrr		; 0ac: translation 7a subr (row 31): get B parameter
 	aw	gl,r6
 	mw	r6,r2
 
 ; opcode 0xd0: LDM - LoaD Multiple words (from translation 3b)
-tt_73:	jsr	get_operand_ub_sb_db
+; after having popped one word from stack into r3:2
+tt_73:	jsr	get_parameter_ub_sb_db
 	sw	r6,spl
 	mw	spl,r4
 L0b2:	ll	0x0,r8
@@ -409,7 +422,7 @@ L0bb:	nop			; 0bb: translation 3e (row 75) - end of instruction
 
 
 ; opcode 0x8e: STM - STore Multiple words (from translation 3d)
-tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44): get UB operand
+tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44): get UB parameter
 	aw	r6,spl
 	riw1	sph,spl
 	iw	0x0,r4
@@ -417,31 +430,32 @@ tt_34:	mw	spl,r2,lrr	; 0bc: translation 1f subr (row 44): get UB operand
 
 
 ; opcode 0xc5: MOV - MOVe words (from translation 37)
-tt_62:	jsr	get_operand_b
+; after having popped two words from stack into r3:2 and r5:4
+tt_62:	jsr	get_parameter_b
 	jmp	L0b2
 
 
 ; opcode 0x92: CPI - Call Procedure Intermediate
-op_cpi:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45): get DB operand
+op_cpi:	mw	mpl,r4,lrr	; 0c3: translation 1f subr (row 45): get DB parameter
 	jzf	L0d3,lrr
 	jmp	L2a2
 
 
-; get UB/SB/DB operand
-get_operand_ub_sb_db:
-	nop			; 0c3: translation 1f (row 46): get UB/SD/DB operand
+; get UB/SB/DB parameter
+get_parameter_ub_sb_db:
+	nop			; 0c3: translation 1f (row 46): get UB/SD/DB parameter
 
 
 ; opcode 0x95: CXI - Call eXternal procedure Intermediate
-op_cxi:	jsr	get_operand_ub_sb_db
+op_cxi:	jsr	get_parameter_ub_sb_db
 	mw	r6,r2
-	mw	mpl,r4,lrr	; 0c9: translation 1f subr (row 47): get DB operand
+	mw	mpl,r4,lrr	; 0c9: translation 1f subr (row 47): get DB parameter
 	jzf	L0d3,lrr
 	jmp	L298
 
 
 ; opcode 0x99: LSL - Load Static Link
-op_lsl:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48): get DB operand
+op_lsl:	mw	mpl,r4,lrr	; lm := mp	; 0cc: translation 1f subr (row 48): get DB parameter
 	jzf	L0d3,lrr	; for i := 1 to DB do
 	al	0xfd,r4		; lm := lm^.m.msstat
 	cdb	r5
@@ -474,20 +488,21 @@ tt_19:	r	sph,spl
 
 
 ; opcode 0xe6: IND - INDex and load word (from translation 37)
-tt_89:	mw	r6,r2,lrr	; 0e2: translation 7a subr (row 37): get B operand
+tt_89:	mw	r6,r2,lrr	; 0e2: translation 7a subr (row 37): get B parameter
 	aw	r6,r2
 	r	r3,r2
 	iw	0x0,r6		; 0e5: translation 5d (row 66, 67) - write one word to stack and end instruction
 
 
 ; opcode 0xe7: INC - INCrement field pointer (from translation 37)
-tt_90:	mw	r6,r2,lrr	; 0e6: translation 7a subr (row 37): get B operand
+tt_90:	mw	r6,r2,lrr	; 0e6: translation 7a subr (row 37): get B parameter
 	aw	r2,r6		; 0e7: translation 5d (row 67) - write one word to stack and end instruction
 
 
 ; opcode 0xd7: IXA: IndeX Array (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_80:	jzt	L0fd
-	mw	r2,r4,lrr	; 0e9: translation 7a subr (row 32): get B operand
+	mw	r2,r4,lrr	; 0e9: translation 7a subr (row 32): get B parameter
 	jsr	L12e
 
 	r	sph,spl
@@ -497,7 +512,8 @@ tt_80:	jzt	L0fd
 
 
 ; opcode 0xd8: IXP - IndeX Packed array
-op_ixp:	jsr	get_operand_ub_sb_db
+; after having popped one word from stack into r3:2
+op_ixp:	jsr	get_parameter_ub_sb_db
 	jsr	L14b
 
 	r	sph,spl
@@ -505,7 +521,7 @@ op_ixp:	jsr	get_operand_ub_sb_db
 	aw	r2,r6
 	ow	r7,r6
 
-	dw1	spl,spl,lrr	; 0f5: translation 1f subr (row 49): get UB operand
+	dw1	spl,spl,lrr	; 0f5: translation 1f subr (row 49): get UB parameter
 	w	sph,spl
 	ow	r7,r6
 	mwf	r4,r2
@@ -515,7 +531,7 @@ L0fb:	dw1	spl,spl
 	jmp	L107
 
 
-L0fd:	jsr	get_operand_b
+L0fd:	jsr	get_parameter_b
 	jmp	op_nop
 
 
@@ -595,6 +611,8 @@ tt_35:	jsr	L14f
 
 
 ; opcode 0xcb: CHK - CHecK against subrange bounds (from translation 2f)
+; after having popped two words from stack into r3:2 and r5:4
+; and read but not popped a third word into r7:6
 tt_68:	cwf	r6,r2
 	jvf	L127
 	mbf	r3,r3
@@ -703,8 +721,9 @@ divide_by_zero:
 
 
 ; opcode 0xc7: ADJ - ADJust set (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_64:	mw	spl,r4
-	aw	r2,spl,lrr	; 16b: translation 1f subr (row 50): get UB operand
+	aw	r2,spl,lrr	; 16b: translation 1f subr (row 50): get UB parameter
 	cwf	r2,r6
 	jnf	L178
 	aw	r6,r4
@@ -827,6 +846,7 @@ L1bd:	r	sph,spl
 
 
 ; opcode 0xda: INN - set membership
+; after having popped one word from stack into r3:2
 op_inn:	mw	spl,r4
 	aw	r2,spl
 	r	sph,spl
@@ -864,6 +884,7 @@ L1df:	rfs
 
 
 ; opcode 0xdb: UNI - set UNIon
+; after having popped one word from stack into r3:2
 op_uni:	jzt	L189
 	mw	r2,r6
 	lgl	r3
@@ -906,6 +927,7 @@ L1fb:	mw	r6,r4
 
 
 ; opcode 0xdc: INT - set INTersection
+; after having popped one word from stack into r3:2
 op_int:	jzf	L206
 	r	sph,spl
 	iw	0x0,r4
@@ -958,6 +980,7 @@ L222:	wiw1	sph,spl
 
 
 ; opcode 0xdd: DIF - set DIFference
+; after having popped one word from stack into r3:2
 op_dif:	jzt	op_nop
 	jsr	L21c
 	jzf	L22d
@@ -981,13 +1004,14 @@ L231:	riw1	sph,spl
 
 
 ; opcode 0xd4: FJP - False JumP (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_77:	tl	0x1,r2
 	jzbf	L296
 
 
 ; opcode 0x8a: UJP - Unconditional JumP (from translation 3d)
 tt_30:
-L23c:	ll	0xff,r3,lrr	; 23c: translation 1f subr (row 51): get SB operand
+L23c:	ll	0xff,r3,lrr	; 23c: translation 1f subr (row 51): get SB parameter
 	slbf	r6,r2
 	cmb	r3,r7
 L23f:	dw1	ipcl,r2
@@ -1005,32 +1029,36 @@ op_nop:	nop			; 245: translation 3e (row 79) - end of instruction
 
 
 ; opcode 0xd2: EFJ - Equal False Jump (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_75:	xwf	r2,r4
 	jzf	L23c
 	jmp	L296
 
 
 ; opcode 0xd3: NFJ - Not equal False Jump (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_76:	xwf	r2,r4
 	jzt	L23c
 	jmp	L296
 
 
 ; opcode 0x8b: UJPL - Unconditional JumP Long (from translation 3d)
-tt_31:	nop	,lrr		; 24c: translation 76 subr (row 54): get W operand
+tt_31:	nop	,lrr		; 24c: translation 76 subr (row 54): get W parameter
 	jmp	L250
 
 
 ; opcode 0xd5: FJPL - False JumP Long (from translation 3b)
-tt_78:	srbf	r2,r2,lrr	; 24e: translation 76 subr (row 54): get W operand
+; after having popped one word from stack into r3:2
+tt_78:	srbf	r2,r2,lrr	; 24e: translation 76 subr (row 54): get W parameter
 	jct	op_nop
 L250:	slbf	r7,r3
 	jmp	L23f
 
 
 ; opcode 0xd6: XJP - case JumP (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_79:	ll	0x4,r4
-	lgl	r4,lrr		; 253: translation 7a subr (row 36): get B operand
+	lgl	r4,lrr		; 253: translation 7a subr (row 36): get B parameter
 	aw	gl,r6
 	ll	0x0,r8
 	jmp	L2e9
@@ -1115,7 +1143,7 @@ op_cpl:	ll	0x7,r4
 
 ; opcode 0x91: CPG - Call Global Procedure
 op_cpg:	ll	0x5,r4
-L28b:	jsr	get_operand_ub_sb_db
+L28b:	jsr	get_parameter_ub_sb_db
 	ll	0x4,r8
 	lgl	r8
 	sw	gl,ipcl
@@ -1125,16 +1153,16 @@ L28b:	jsr	get_operand_ub_sb_db
 
 ; opcode 0x93: CXL - Call eXternal procedure Local
 op_cxl:	ll	0x7,r4
-	jsr	get_operand_ub_sb_db
+	jsr	get_parameter_ub_sb_db
 	jmp	L29c
 
 
 ; opcode 0x94: CXG - Call eXternal procedure Global
-op_cxg:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52): get UB operand
+op_cxg:	ll	0x5,r4,lrr	; 294: translation 1f subr (row 52): get UB parameter
 	jmp	L29c
 
 
-L296:	nop	,lrr		; 296: translation 1f subr (row 52): get UB/SB/DB operand
+L296:	nop	,lrr		; 296: translation 1f subr (row 52): get UB/SB/DB parameter
 	nop	,rsvc
 
 
@@ -1146,7 +1174,7 @@ L298:	lgl	r6
 
 L29c:	jsr	L2ba
 	jsr	L2a6
-	jsr	get_operand_ub_sb_db
+	jsr	get_parameter_ub_sb_db
 L29f:	sw	gl,ipcl
 	mw	r2,gl
 	jmp	L257
@@ -1208,7 +1236,7 @@ op_rpu:	dw1	mpl,mpl		; sp := mp (adjusted)
 	cib	mph
 
 	ll	0x4,r8		; g = segb
-	lgl	r8,lrr		; 2cd: translation 7a subr (row 33): get B operand
+	lgl	r8,lrr		; 2cd: translation 7a subr (row 33): get B parameter
 
 	riw1	sph,spl
 	iw	0x0,ipcl
@@ -1242,6 +1270,7 @@ op_bpt:	ll	0xe,r6		; raise exception 14 - halt or breakpoint
 
 
 ; opcode 0xc6: DUP2 - DUPlicate 2 words of stack (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_63:	al	0xfd,spl
 	cdb	sph
 	mw	r2,r6
@@ -1291,21 +1320,29 @@ tt_13:	; from translation 75, TSR = X0, loads TSR := 2
 
 
 ; opcode 0xc1: SBR - SuBtract Real (from translation 2f)
+; after having popped two words from stack into r3:2 and r5:4
+; and read but not popped a third word into r7:6
 tt_58:	al	0x80,r3
 
 ; opcode 0xc0: ADR - ADd Real (from translation 2f)
+; after having popped two words from stack into r3:2 and r5:4
+; and read but not popped a third word into r7:6
 tt_57:	jmp	L32f
 
 
 ; opcode 0xc3: DVR - DiVide Real (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_60:	jmp	L39a
 
 
 ; opcode 0xc2: MPR - MultiPly Real (from translation 2f)
+; after having popped two words from stack into r3:2 and r5:4
+; and read but not popped a third word into r7:6
 tt_59:	jmp	L37d
 
 
 ; opcode 0xcc: FLT - FLoaT top of stack (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_69:	mwf	r2,r6
 	jzt	L313
 	ll	0x8e,r3
@@ -1611,6 +1648,7 @@ tt_55:	mb	r6,r4
 
 
 ; dispatch opcodes 0xd8..0xdf (from translation 3b)
+; after having popped one word from stack into r3:2
 tt_81:	ll	0x0,r7
 	nl	0x7,r6
 	mi	r7,r6
@@ -1683,6 +1721,7 @@ tt_49:	cwf	r2,r6
 
 
 ; opcode 0xcd: EQUREAL - EQUal REAL (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_70:	jsr	L44c
 	jmp	L4bd
 
@@ -1691,6 +1730,7 @@ tt_70:	jsr	L44c
 
 
 ; opcode 0xce: LEQREAL - Less than or EQual REAL (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_71:	jsr	L44c
 	jnbt	L446
 	jct	L446
@@ -1698,6 +1738,7 @@ tt_71:	jsr	L44c
 
 
 ; opcode 0xcf: GEQREAL - Greater than or EQual REAL (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_72:	jsr	L44c
 	jnbt	L449
 	jct	L449
@@ -1806,14 +1847,14 @@ L491:	riw1	r3,r2
 
 ; opcode 0xb9: EQUBYT - equal byte array compare
 op_equbyt:
-	mw	r6,r4,lrr	; 497: translation 7a subr (row 38): get B operand
+	mw	r6,r4,lrr	; 497: translation 7a subr (row 38): get B parameter
 	jsr	L4a4
 	jmp	L431
 
 
 ; opcode 0xba: LEQBYT - less or equal byte array compare
 op_leqbyt:
-	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34): get B operand
+	mw	r6,r4,lrr	; 49a: translation 7a subr (row 34): get B parameter
 	jsr	L4a4
 	jcf	L4c3
 	jmp	L4bd
@@ -1824,7 +1865,7 @@ op_leqbyt:
 
 ; opcode 0xbb: GEQBYT: greater or equal byte array compare
 op_geqbyt:
-	mw	r6,r4,lrr	; 49f: translation 7a subr (row 38): get B operand
+	mw	r6,r4,lrr	; 49f: translation 7a subr (row 38): get B parameter
 	jsr	L4a4
 	jzt	L4c3
 	jct	L4c3
@@ -1908,6 +1949,7 @@ L4dd:	dw1	ipcl,spl
 
 
 ; opcode 0xd1: SPR - Store Processor Register (from translation 37)
+; after having popped two words from stack into r3:2 and r5:4
 tt_74:	icb1f	r4,r8
 	jnf	L4e6
 
@@ -1987,6 +2029,7 @@ L507:	ll	0xfc,r5		; r5:4 := 0xfc40
 	iw	0x0,r2
 
 ; opcode 0xde: SIGNAL - SIGNAL semaphore
+; after having popped one word from stack into r3:2
 op_signal:
 	riw1	r3,r2		; r5:4 := [r3:2++]
 	iwf	0x0,r4
@@ -2035,6 +2078,7 @@ L51c:	r	r3,r2
 
 
 ; opcode 0xdf: WAIT - WAIT on semaphore
+; after having popped one word from stack into r3:2
 op_wait:
 	riw1	r3,r2		; r5:4 := [r3:2]
 	iwf	0x0,r4
